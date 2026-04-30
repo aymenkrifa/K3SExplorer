@@ -143,6 +143,13 @@ function LogPane({ tab, tail }: { tab: LogTab; tail?: number }) {
         >
           Auto-scroll
         </button>
+        <button
+          onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'instant' })}
+          className="text-[10px] px-2 py-0.5 rounded border border-gray-700 text-gray-600 hover:text-gray-400 transition-colors"
+          title="Scroll to bottom"
+        >
+          Scroll to bottom
+        </button>
         <span className="text-[10px] text-gray-700 shrink-0">{filtered.length} lines</span>
       </div>
 
