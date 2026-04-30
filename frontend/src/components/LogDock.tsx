@@ -194,16 +194,23 @@ export function LogDock({ tabs, onClose, onCloseAll, tail }: Props) {
   const dragging = useRef(false);
   const startY = useRef(0);
   const startH = useRef(0);
+  const prevLengthRef = useRef(tabs.length);
 
   useEffect(() => {
     if (tabs.length === 0) {
       setActiveId(null);
+      prevLengthRef.current = 0;
       return;
     }
-    if (!activeId || !tabs.find((t) => t.id === activeId)) {
+    if (tabs.length > prevLengthRef.current) {
+      // New tab opened — switch to it
+      setActiveId(tabs[tabs.length - 1].id);
+      setCollapsed(false);
+    } else if (!activeId || !tabs.find((t) => t.id === activeId)) {
       setActiveId(tabs[tabs.length - 1].id);
       setCollapsed(false);
     }
+    prevLengthRef.current = tabs.length;
   }, [tabs]);
 
   function onResizeStart(e: React.MouseEvent) {
