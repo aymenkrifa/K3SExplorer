@@ -163,14 +163,18 @@ async def get_namespaces():
 
 # GET /api/deployments
 @app.get("/api/deployments")
-async def list_deployments(namespace: str = "default"):
+async def list_deployments(namespace: str = "default", names: str = ""):
     try:
+        name_set = set(names.split(",")) if names else set()
         if namespace == "all":
             deps = apps_v1.list_deployment_for_all_namespaces()
         else:
             deps = apps_v1.list_namespaced_deployment(namespace)
         result = []
         for d in deps.items:
+            dep_name = d.metadata.name or ""
+            if name_set and dep_name not in name_set:
+                continue
             dep = map_deployment(d)
             dep["pods"] = map_pods(dep["namespace"], d.spec.selector.match_labels or {})
             dep["ingresses"] = map_ingresses(dep["namespace"], d.spec.selector.match_labels or {})

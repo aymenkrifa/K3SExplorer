@@ -14,8 +14,10 @@ export async function fetchNamespaces(): Promise<string[]> {
   return r.json();
 }
 
-export async function fetchDeployments(namespace: string): Promise<Deployment[]> {
-  const r = await fetch(`${BASE}/deployments?namespace=${namespace}`);
+export async function fetchDeployments(namespace: string, names?: string[]): Promise<Deployment[]> {
+  const params = new URLSearchParams({ namespace });
+  if (names?.length) params.set('names', names.join(','));
+  const r = await fetch(`${BASE}/deployments?${params}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -56,9 +58,10 @@ export function openLogStream(
   namespace: string,
   container: string,
   onLine: (line: string) => void,
-  onClose: () => void
+  onClose: () => void,
+  tail = 200
 ): WebSocket {
-  const url = `/ws/logs?namespace=${namespace}&pod=${pod}&container=${container}&tail=200`;
+  const url = `/ws/logs?namespace=${namespace}&pod=${pod}&container=${container}&tail=${tail}`;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}${url}`);
   ws.onmessage = (e) => {

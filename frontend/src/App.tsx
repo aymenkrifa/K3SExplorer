@@ -1,23 +1,45 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Layers, RefreshCw, Server } from 'lucide-react';
+import { Layers, RefreshCw, Server, Settings } from 'lucide-react';
 import type { Context, Deployment, DeploymentStatus } from './types';
 import { deploymentStatus } from './types';
 import { fetchContexts, fetchDeployments, fetchNamespaces } from './api';
 import { DeploymentCard } from './components/DeploymentCard';
 import { LogDock, LogTab } from './components/LogDock';
+import { SettingsModal, loadSettings, saveSettings } from './components/SettingsModal';
+
+function getColorHex(twClass: string): string {
+  const map: Record<string, string> = {
+    'bg-rose-600': '#e11d48',
+    'bg-orange-600': '#ea580c',
+    'bg-amber-600': '#d97706',
+    'bg-emerald-600': '#059669',
+    'bg-sky-600': '#0284c7',
+    'bg-indigo-600': '#4f46e5',
+    'bg-violet-600': '#7c3aed',
+    'bg-pink-600': '#db2777',
+  };
+  return map[twClass] || '#4b5563';
+}
 
 export default function App() {
   const [contexts, setContexts] = useState<Context[]>([]);
   const [namespaces, setNamespaces] = useState<string[]>([]);
-  const [selectedNs, setSelectedNs] = useState('all');
+  const loaded = loadSettings();
+  const hasDefaultGroup = loaded.defaultGroupId && loaded.groups.find((g) => g.id === loaded.defaultGroupId);
+  const [selectedNs, setSelectedNs] = useState(hasDefaultGroup ? 'all' : loaded.defaultNamespace);
   const [allDeployments, setAllDeployments] = useState<Deployment[]>([]);
   const [pinned, setPinned] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('pinned') || '[]'); } catch { return []; }
   });
+  const [settings, setSettings] = useState(loaded);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsFocusGroupId, setSettingsFocusGroupId] = useState<string | null>(null);
+  const [fullDeploymentsForSettings, setFullDeploymentsForSettings] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | DeploymentStatus>('all');
+  const [groupFilter, setGroupFilter] = useState<string | null>(loaded.defaultGroupId || null);
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [logTabs, setLogTabs] = useState<LogTab[]>([]);
 
@@ -55,23 +77,45 @@ export default function App() {
     setLoading(true);
     setError('');
     try {
-      const deps = await fetchDeployments(selectedNs);
+      const activeGroup = groupFilter ? settings.groups.find((g) => g.id === groupFilter) : null;
+      const names = activeGroup ? activeGroup.patterns : undefined;
+      const deps = await fetchDeployments(selectedNs, names);
       setAllDeployments(deps);
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
-  }, [selectedNs]);
+  }, [selectedNs, groupFilter, settings.groups]);
 
   useEffect(() => { reload(); }, [reload]);
   useEffect(() => { loadDeployments(); }, [loadDeployments]);
+
+  // Switch to 'all' namespaces when a group filter is active (groups may span namespaces)
+  useEffect(() => {
+    if (groupFilter && selectedNs !== 'all') {
+      setSelectedNs('all');
+    }
+  }, [groupFilter]);
+
+  // Clear group filter if the group no longer exists in settings
+  useEffect(() => {
+    if (groupFilter && !settings.groups.find((g) => g.id === groupFilter)) {
+      setGroupFilter(null);
+    }
+  }, [settings.groups, groupFilter]);
 
   const currentCtx = contexts.find((c) => c.current);
   const filtered = allDeployments.filter((d) => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || deploymentStatus(d) === statusFilter;
-    return matchSearch && matchStatus;
+    const matchGroup =
+      !groupFilter ||
+      settings.groups
+        .find((g) => g.id === groupFilter)
+        ?.patterns.includes(d.name) ||
+      false;
+    return matchSearch && matchStatus && matchGroup;
   });
   const pinnedDeployments = pinned
     .map((key) => allDeployments.find((d) => `${d.namespace}/${d.name}` === key))
@@ -113,6 +157,10 @@ export default function App() {
     localStorage.setItem('pinned', JSON.stringify(pinned));
   }, [pinned]);
 
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
+
   return (
     <div className="h-screen flex flex-col">
       {/* Top bar */}
@@ -141,6 +189,16 @@ export default function App() {
           title="Refresh deployments"
         >
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+        </button>
+        <button
+          onClick={() => {
+            setSettingsFocusGroupId(null);
+            setSettingsOpen(true);
+          }}
+          className="text-gray-500 hover:text-gray-200 transition-colors"
+          title="Settings"
+        >
+          <Settings size={15} />
         </button>
       </header>
 
@@ -183,6 +241,37 @@ export default function App() {
                 </button>
               ))}
             </div>
+            {settings.groups.length > 0 && (
+              <div className="flex gap-1 flex-wrap">
+                <button
+                  onClick={() => setGroupFilter(null)}
+                  className={`text-[10px] px-2 py-1 rounded transition-colors ${
+                    groupFilter === null
+                      ? 'bg-sky-700 text-white'
+                      : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  All groups
+                </button>
+                {settings.groups.map((g) => {
+                  const active = groupFilter === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => setGroupFilter(active ? null : g.id)}
+                      className={`text-[10px] px-2 py-1 rounded transition-colors flex items-center gap-1 ${
+                        active ? 'text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+                      }`}
+                      style={active ? { backgroundColor: getColorHex(g.color) } : undefined}
+                      title={g.patterns.length ? g.patterns.join(', ') : 'Empty group'}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${g.color}`} />
+                      {g.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto">
             {error && (
@@ -245,6 +334,7 @@ export default function App() {
                     onRemove={() => togglePin(dep)}
                     onRefresh={loadDeployments}
                     onOpenLog={openLogTab}
+                    autoExpandPods={settings.autoExpandPods}
                   />
                 );
               })}
@@ -256,6 +346,24 @@ export default function App() {
         tabs={logTabs}
         onClose={closeLogTab}
         onCloseAll={() => setLogTabs([])}
+        tail={settings.logTailLines}
+      />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          setFullDeploymentsForSettings([]);
+          setSettingsFocusGroupId(null);
+        }}
+        settings={settings}
+        onChange={setSettings}
+        namespaces={namespaces}
+        deployments={fullDeploymentsForSettings.length ? fullDeploymentsForSettings.map((d) => ({ name: d.name, namespace: d.namespace })) : undefined}
+        onRequestDeployments={async () => {
+          const full = await fetchDeployments('all');
+          setFullDeploymentsForSettings(full);
+        }}
+        focusGroupId={settingsFocusGroupId}
       />
     </div>
   );

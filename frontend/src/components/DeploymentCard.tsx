@@ -20,6 +20,7 @@ interface Props {
   onRemove: () => void;
   onRefresh: () => void;
   onOpenLog: (podName: string, namespace: string, container: string, deploymentName: string) => void;
+  autoExpandPods?: boolean;
 }
 
 function age(createdAt: string | null): string {
@@ -32,11 +33,11 @@ function age(createdAt: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog }: Props) {
+export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, autoExpandPods = true }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
   const pods = dep.pods || [];
   const ingresses = dep.ingresses || [];
-  const [podsExpanded, setPodsExpanded] = useState(true);
+  const [podsExpanded, setPodsExpanded] = useState(autoExpandPods);
   const [ingressExpanded, setIngressExpanded] = useState(false);
   const [scaling, setScaling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -290,7 +291,7 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
       <div className="border-t border-gray-800 px-4 py-2">
         {dep.images.map((img) => (
           <p key={img} className="text-[10px] text-gray-600 truncate" title={img}>
-            {img}
+            Image: {img}
           </p>
         ))}
       </div>

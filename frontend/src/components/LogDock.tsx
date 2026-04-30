@@ -76,7 +76,7 @@ function parseLine(raw: string): { ts: string | null; body: string } {
   return { ts: null, body: raw };
 }
 
-function LogPane({ tab }: { tab: LogTab }) {
+function LogPane({ tab, tail }: { tab: LogTab; tail?: number }) {
   const [lines, setLines] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
   const [search, setSearch] = useState('');
@@ -101,11 +101,12 @@ function LogPane({ tab }: { tab: LogTab }) {
       () => {
         setLines((prev) => [...prev, '--- stream closed ---']);
         setConnected(false);
-      }
+      },
+      tail
     );
     wsRef.current = ws;
     return () => ws.close();
-  }, [tab.id]);
+  }, [tab.id, tail]);
 
   useEffect(() => {
     if (autoScroll && bottomRef.current) {
@@ -180,12 +181,13 @@ interface Props {
   tabs: LogTab[];
   onClose: (id: string) => void;
   onCloseAll: () => void;
+  tail?: number;
 }
 
 const MIN_HEIGHT = 160;
 const DEFAULT_HEIGHT = 320;
 
-export function LogDock({ tabs, onClose, onCloseAll }: Props) {
+export function LogDock({ tabs, onClose, onCloseAll, tail }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -302,7 +304,7 @@ export function LogDock({ tabs, onClose, onCloseAll }: Props) {
         <div className="flex-1 min-h-0">
           {tabs.map((tab) => (
             <div key={tab.id} className={`h-full ${tab.id === activeId ? 'block' : 'hidden'}`}>
-              <LogPane tab={tab} />
+              <LogPane tab={tab} tail={tail} />
             </div>
           ))}
         </div>
