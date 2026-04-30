@@ -1,0 +1,330 @@
+import { useEffect, useState } from 'react';
+import {
+  Activity,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Container,
+  Minus,
+  Plus,
+  RefreshCw,
+  ScrollText,
+  X,
+} from 'lucide-react';
+import type { Deployment, DeploymentStatus, Ingress, Pod } from '../types';
+import { deploymentStatus } from '../types';
+import { fetchDeployment, fetchIngress, fetchPods, scaleDeployment } from '../api';
+
+interface Props {
+  deployment: Deployment;
+  onRemove: () => void;
+  onRefresh: () => void;
+  onOpenLog: (podName: string, namespace: string, container: string, deploymentName: string) => void;
+}
+
+function age(createdAt: string | null): string {
+  if (!createdAt) return '-';
+  const diff = Date.now() - new Date(createdAt).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog }: Props) {
+  const [dep, setDep] = useState<Deployment>(initial);
+  const [pods, setPods] = useState<Pod[]>([]);
+  const [ingresses, setIngresses] = useState<Ingress[]>([]);
+  const [podsExpanded, setPodsExpanded] = useState(true);
+  const [ingressExpanded, setIngressExpanded] = useState(false);
+  const [scaling, setScaling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    setDep(initial);
+  }, [initial]);
+
+  useEffect(() => {
+    if (podsExpanded) loadPods();
+  }, [podsExpanded]);
+
+  useEffect(() => {
+    if (ingressExpanded) loadIngresses();
+  }, [ingressExpanded]);
+
+  async function loadPods() {
+    try {
+      const p = await fetchPods(dep.name, dep.namespace);
+      setPods(p);
+    } catch {
+      setPods([]);
+    }
+  }
+
+  async function loadIngresses() {
+    try {
+      const i = await fetchIngress(dep.name, dep.namespace);
+      setIngresses(i);
+    } catch {
+      setIngresses([]);
+    }
+  }
+
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      const d = await fetchDeployment(dep.name, dep.namespace);
+      setDep(d);
+      if (podsExpanded) await loadPods();
+      if (ingressExpanded) await loadIngresses();
+    } finally {
+      setRefreshing(false);
+      onRefresh();
+    }
+  }
+
+  async function scale(delta: number) {
+    const next = Math.max(0, dep.replicas.desired + delta);
+    setScaling(true);
+    try {
+      await scaleDeployment(dep.name, dep.namespace, next);
+      await new Promise((r) => setTimeout(r, 500));
+      await refresh();
+    } finally {
+      setScaling(false);
+    }
+  }
+
+  const status: DeploymentStatus = deploymentStatus(dep);
+  const ready = dep.replicas.ready;
+  const desired = dep.replicas.desired;
+
+  const statusDot: Record<DeploymentStatus, string> = {
+    Running: 'bg-emerald-400',
+    Degraded: 'bg-yellow-400',
+    Stopped: 'bg-gray-600',
+  };
+  const statusText: Record<DeploymentStatus, string> = {
+    Running: 'text-emerald-400',
+    Degraded: 'text-yellow-400',
+    Stopped: 'text-gray-500',
+  };
+  const statusLabel: Record<DeploymentStatus, string> = {
+    Running: 'Running',
+    Degraded: 'Degraded',
+    Stopped: 'Stopped',
+  };
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
+        <span
+          className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot[status]} ${status === 'Running' ? 'animate-pulse' : ''}`}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm truncate">{dep.name}</p>
+          <p className="text-xs text-gray-500">{dep.namespace}</p>
+        </div>
+        <button
+          onClick={refresh}
+          className="text-gray-500 hover:text-gray-200 transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+        <button
+          onClick={onRemove}
+          className="text-gray-600 hover:text-red-400 transition-colors"
+          title="Remove card"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 divide-x divide-gray-800 text-center">
+        <div className="py-3 flex flex-col items-center gap-1">
+          <Activity size={13} className="text-gray-500" />
+          <p className={`text-xs font-semibold ${statusText[status]}`}>
+            {statusLabel[status]}
+          </p>
+        </div>
+        <div className="py-3 flex flex-col items-center gap-1">
+          <Container size={13} className="text-gray-500" />
+          <p className="text-xs">
+            <span className={ready < desired && desired > 0 ? 'text-yellow-400' : 'text-gray-100'}>
+              {ready}
+            </span>
+            <span className="text-gray-500">/{desired}</span>
+          </p>
+        </div>
+        <div className="py-3 flex flex-col items-center gap-1">
+          <Clock size={13} className="text-gray-500" />
+          <p className="text-[10px] text-gray-600">Deployed</p>
+          <p className="text-xs text-gray-300">{age(dep.createdAt)}</p>
+        </div>
+      </div>
+
+      {/* Scale controls */}
+      <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800">
+        <span className="text-xs text-gray-500">Replicas</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => scale(-1)}
+            disabled={scaling || dep.replicas.desired === 0}
+            className="rounded p-1 hover:bg-gray-700 disabled:opacity-40 transition-colors"
+          >
+            <Minus size={12} />
+          </button>
+          <span className="text-sm w-5 text-center">{dep.replicas.desired}</span>
+          <button
+            onClick={() => scale(1)}
+            disabled={scaling}
+            className="rounded p-1 hover:bg-gray-700 disabled:opacity-40 transition-colors"
+          >
+            <Plus size={12} />
+          </button>
+        </div>
+      </div>
+
+      <button
+        onClick={() => setIngressExpanded((v) => !v)}
+        className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+      >
+        <span>Ingresses</span>
+        {ingressExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+
+      {/* Ingress list */}
+      {ingressExpanded && (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/50">
+          {ingresses.length === 0 ? (
+            <p className="text-xs text-gray-600 px-4 py-3">No ingresses found</p>
+          ) : (
+            ingresses.map((ing) => {
+              const host = ing.rules[0]?.host;
+              const baseUrl = host ? `http://${host}/` : '';
+              const docsUrl = host ? `http://${host}/docs` : '';
+              return (
+                <div key={ing.name} className="px-3 py-2 flex items-center justify-between text-[10px]">
+                  {baseUrl ? (
+                    <a
+                      href={baseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-400 hover:text-sky-300 truncate transition-colors"
+                      title={baseUrl}
+                    >
+                      {host}
+                    </a>
+                  ) : (
+                    <span className="text-gray-500">{ing.name}</span>
+                  )}
+                  {docsUrl && (
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <a
+                        href={docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                        title={docsUrl}
+                      >
+                        Docs
+                      </a>
+                      <a
+                        href={`http://${host}/redoc`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-orange-400 hover:text-orange-300 transition-colors"
+                        title={`http://${host}/redoc`}
+                      >
+                        ReDoc
+                      </a>
+                      <a
+                        href={`http://${host}/openapi.json`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-400 hover:text-purple-300 transition-colors"
+                        title={`http://${host}/openapi.json`}
+                      >
+                        OpenAPI
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Toggle pods */}
+      <button
+        onClick={() => setPodsExpanded((v) => !v)}
+        className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+      >
+        <span>Pods</span>
+        {podsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+
+      {/* Pods list */}
+      {podsExpanded && (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/50">
+          {pods.length === 0 ? (
+            <p className="text-xs text-gray-600 px-4 py-3">No pods found</p>
+          ) : (
+            pods.map((pod) => {
+              const podRunning = pod.phase === 'Running' && pod.ready;
+              const podDegraded = pod.phase === 'Running' && !pod.ready;
+              const podDotColor = podRunning
+                ? 'bg-emerald-400'
+                : podDegraded
+                  ? 'bg-yellow-400'
+                  : 'bg-red-500';
+              const podPhaseLabel = pod.ready ? 'Running' : pod.phase;
+              return (
+                <div key={pod.name} className="px-3 py-2 flex flex-col gap-1 text-[10px]">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${podDotColor} ${podRunning ? 'animate-pulse' : ''}`} />
+                    <span className="text-gray-300 truncate flex-1 min-w-0 text-xs">{pod.name}</span>
+                    <button
+                      onClick={() => onOpenLog(pod.name, dep.namespace, pod.containers[0] ?? '', dep.name)}
+                      title="Open logs in dock"
+                      className="text-gray-600 hover:text-sky-400 transition-colors shrink-0"
+                    >
+                      <ScrollText size={12} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 pl-3.5 text-gray-600">
+                    <span className={podRunning ? 'text-emerald-500' : podDegraded ? 'text-yellow-500' : 'text-red-500'}>
+                      {podPhaseLabel}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={9} />
+                      {age(pod.createdAt)}
+                    </span>
+                    {pod.restarts > 0 && (
+                      <span className="text-orange-400">↺ {pod.restarts} restart{pod.restarts !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Images */}
+      <div className="border-t border-gray-800 px-4 py-2">
+        {dep.images.map((img) => (
+          <p key={img} className="text-[10px] text-gray-600 truncate" title={img}>
+            {img}
+          </p>
+        ))}
+      </div>
+
+    </div>
+  );
+}
