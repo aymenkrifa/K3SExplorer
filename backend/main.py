@@ -63,6 +63,63 @@ def map_deployment(d):
     }
 
 
+def map_pods(namespace, selector):
+    label_selector = ",".join(f"{k}={v}" for k, v in selector.items())
+    pod_list = v1.list_namespaced_pod(
+        namespace=namespace,
+        label_selector=label_selector,
+    )
+    pods = []
+    for p in pod_list.items:
+        cs = p.status.container_statuses or []
+        pods.append(
+            {
+                "name": p.metadata.name or "",
+                "phase": p.status.phase or "Unknown",
+                "createdAt": p.metadata.creation_timestamp.isoformat()
+                if p.metadata.creation_timestamp
+                else None,
+                "ready": all(c.ready for c in cs),
+                "restarts": sum(c.restart_count for c in cs),
+                "containers": [c.name for c in (p.spec.containers or [])],
+            }
+        )
+    return pods
+
+
+def map_ingresses(namespace, dep_labels):
+    svc_list = v1.list_namespaced_service(namespace)
+    matching_services = set()
+    for svc in svc_list.items:
+        selector = dict(svc.spec.selector or {})
+        if selector and all(dep_labels.get(k) == v for k, v in selector.items()):
+            matching_services.add(svc.metadata.name)
+
+    ingress_list = networking_v1.list_namespaced_ingress(namespace)
+    result = []
+    for ing in ingress_list.items:
+        ing_services = set()
+        for rule in (ing.spec.rules or []):
+            for p in (rule.http.paths if rule.http else []):
+                svc = p.backend.service.name if p.backend and p.backend.service else ""
+                if svc:
+                    ing_services.add(svc)
+
+        if ing_services & matching_services:
+            rules = []
+            for rule in (ing.spec.rules or []):
+                host = rule.host or "*"
+                paths = []
+                for p in (rule.http.paths if rule.http else []):
+                    service_name = p.backend.service.name if p.backend and p.backend.service else ""
+                    paths.append({"path": p.path or "/", "service": service_name})
+                if paths:
+                    rules.append({"host": host, "paths": paths})
+            if rules:
+                result.append({"name": ing.metadata.name or "", "rules": rules})
+    return result
+
+
 # ── app ──────────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -112,7 +169,13 @@ async def list_deployments(namespace: str = "default"):
             deps = apps_v1.list_deployment_for_all_namespaces()
         else:
             deps = apps_v1.list_namespaced_deployment(namespace)
-        return [map_deployment(d) for d in deps.items]
+        result = []
+        for d in deps.items:
+            dep = map_deployment(d)
+            dep["pods"] = map_pods(dep["namespace"], d.spec.selector.match_labels or {})
+            dep["ingresses"] = map_ingresses(dep["namespace"], d.spec.selector.match_labels or {})
+            result.append(dep)
+        return result
     except ApiException as e:
         return {"error": str(e)}
 

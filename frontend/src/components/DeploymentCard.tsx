@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { Deployment, DeploymentStatus, Ingress, Pod } from '../types';
 import { deploymentStatus } from '../types';
-import { fetchDeployment, fetchIngress, fetchPods, scaleDeployment } from '../api';
+import { scaleDeployment } from '../api';
 
 interface Props {
   deployment: Deployment;
@@ -34,8 +34,8 @@ function age(createdAt: string | null): string {
 
 export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
-  const [pods, setPods] = useState<Pod[]>([]);
-  const [ingresses, setIngresses] = useState<Ingress[]>([]);
+  const pods = dep.pods || [];
+  const ingresses = dep.ingresses || [];
   const [podsExpanded, setPodsExpanded] = useState(true);
   const [ingressExpanded, setIngressExpanded] = useState(false);
   const [scaling, setScaling] = useState(false);
@@ -45,42 +45,12 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
     setDep(initial);
   }, [initial]);
 
-  useEffect(() => {
-    if (podsExpanded) loadPods();
-  }, [podsExpanded]);
-
-  useEffect(() => {
-    if (ingressExpanded) loadIngresses();
-  }, [ingressExpanded]);
-
-  async function loadPods() {
-    try {
-      const p = await fetchPods(dep.name, dep.namespace);
-      setPods(p);
-    } catch {
-      setPods([]);
-    }
-  }
-
-  async function loadIngresses() {
-    try {
-      const i = await fetchIngress(dep.name, dep.namespace);
-      setIngresses(i);
-    } catch {
-      setIngresses([]);
-    }
-  }
-
   async function refresh() {
     setRefreshing(true);
     try {
-      const d = await fetchDeployment(dep.name, dep.namespace);
-      setDep(d);
-      if (podsExpanded) await loadPods();
-      if (ingressExpanded) await loadIngresses();
+      await onRefresh();
     } finally {
       setRefreshing(false);
-      onRefresh();
     }
   }
 

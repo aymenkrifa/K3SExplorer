@@ -29,6 +29,8 @@ export interface Deployment {
   availableStatus: string;
   images: string[];
   labels: Record<string, string>;
+  pods: Pod[];
+  ingresses: Ingress[];
 }
 
 export interface Pod {
