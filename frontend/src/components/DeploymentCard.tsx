@@ -133,7 +133,6 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
         </div>
         <div className="py-3 flex flex-col items-center gap-1">
           <Clock size={13} className="text-gray-500" />
-          <p className="text-[10px] text-gray-600">Deployed</p>
           <p className="text-xs text-gray-300">{age(dep.createdAt)}</p>
         </div>
       </div>
