@@ -149,14 +149,14 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
-      <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-2xl w-[540px] max-h-[80vh] flex flex-col">
+      <div className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-2xl w-[540px] max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-          <div className="flex items-center gap-2 text-gray-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
             <SettingsIcon size={16} />
             <span className="font-semibold text-sm">Settings</span>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-200 transition-colors">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -168,11 +168,11 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">General</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-300">Default namespace</label>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Default namespace</label>
                 <select
                   value={draft.defaultNamespace}
                   onChange={(e) => update({ defaultNamespace: e.target.value })}
-                  className="bg-gray-800 border border-gray-700 text-xs text-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-sky-600"
+                  className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-sky-600"
                 >
                   {namespaces.map((ns) => (
                     <option key={ns} value={ns}>{ns}</option>
@@ -181,7 +181,7 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-300">Auto-expand pods</label>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Auto-expand pods</label>
                 <button
                   onClick={() => update({ autoExpandPods: !draft.autoExpandPods })}
                   className={`w-10 h-5 rounded-full transition-colors relative ${
@@ -199,14 +199,14 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-300">Log tail lines</label>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Log tail lines</label>
                 <input
                   type="number"
                   min={10}
                   max={5000}
                   value={draft.logTailLines}
                   onChange={(e) => update({ logTailLines: Math.max(10, Math.min(5000, parseInt(e.target.value) || 200)) })}
-                  className="bg-gray-800 border border-gray-700 text-xs text-gray-300 rounded px-2 py-1.5 w-20 focus:outline-none focus:border-sky-600"
+                  className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-300 rounded px-2 py-1.5 w-20 focus:outline-none focus:border-sky-600"
                 />
               </div>
             </div>
@@ -238,14 +238,14 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
                   <div
                     key={group.id}
                     ref={(el) => { groupRefs.current[group.id] = el; }}
-                    className={`bg-gray-800/50 border rounded p-3 space-y-2 ${focusGroupId === group.id ? 'border-sky-600' : 'border-gray-800'}`}
+                    className={`bg-gray-100/50 dark:bg-gray-800/50 border rounded p-3 space-y-2 ${focusGroupId === group.id ? 'border-sky-600' : 'border-gray-200 dark:border-gray-800'}`}
                   >
                     <div className="flex items-center gap-2">
                       <span className={`w-3 h-3 rounded-full ${group.color}`} />
                       <input
                         value={working.name}
                         onChange={(e) => updateGroupDraft(group.id, { name: e.target.value })}
-                        className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-sky-600"
+                        className="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-sky-600"
                         placeholder="Group name"
                       />
                       <button
@@ -269,7 +269,7 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
                         {working.patterns.map((name) => (
                           <span
                             key={name}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] border border-gray-600 rounded text-gray-300 bg-gray-800/80"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800/80"
                           >
                             {name}
                             <button
@@ -297,9 +297,9 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
                     )}
 
                     {isEditing && (
-                      <div className="max-h-32 overflow-y-auto bg-gray-800 border border-gray-700 rounded p-2 space-y-1">
+                      <div className="max-h-32 overflow-y-auto bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded p-2 space-y-1">
                         {loadingDeployments && (
-                          <p className="text-[10px] text-gray-600">Loading deployments…</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-600">Loading deployments…</p>
                         )}
                         {!loadingDeployments && !hasDeployments && (
                           <p className="text-[10px] text-gray-600">No deployments available</p>
@@ -307,7 +307,7 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
                         {!loadingDeployments && hasDeployments && deployments.map((d) => {
                           const checked = working.patterns.includes(d.name);
                           return (
-                            <label key={d.name} className="flex items-center gap-2 text-xs text-gray-300 hover:text-gray-100 cursor-pointer">
+                            <label key={d.name} className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -339,7 +339,7 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
                         </button>
                         <button
                           onClick={() => cancelGroupEdit(group.id)}
-                          className="px-2 py-1 text-[10px] text-gray-400 hover:text-gray-200 transition-colors"
+                          className="px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                         >
                           Cancel
                         </button>
@@ -353,10 +353,10 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-800">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
             Cancel
           </button>

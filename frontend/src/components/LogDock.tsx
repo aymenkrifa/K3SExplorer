@@ -119,9 +119,9 @@ function LogPane({ tab, tail }: { tab: LogTab; tail?: number }) {
     : lines;
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-950">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-800 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
             connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'
@@ -131,26 +131,26 @@ function LogPane({ tab, tail }: { tab: LogTab; tail?: number }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter lines…"
-          className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-sky-600"
+          className="flex-1 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded px-2 py-0.5 text-[11px] text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-600"
         />
         <button
           onClick={() => setAutoScroll((v) => !v)}
           className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
             autoScroll
-              ? 'border-sky-700 bg-sky-900/40 text-sky-300'
-              : 'border-gray-700 text-gray-600 hover:text-gray-400'
+              ? 'border-sky-600 dark:border-sky-700 bg-sky-100/40 dark:bg-sky-900/40 text-sky-600 dark:text-sky-300'
+              : 'border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-400'
           }`}
         >
           Auto-scroll
         </button>
         <button
           onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'instant' })}
-          className="text-[10px] px-2 py-0.5 rounded border border-gray-700 text-gray-600 hover:text-gray-400 transition-colors"
+          className="text-[10px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-400 transition-colors"
           title="Scroll to bottom"
         >
           Scroll to bottom
         </button>
-        <span className="text-[10px] text-gray-700 shrink-0">{filtered.length} lines</span>
+        <span className="text-[10px] text-gray-500 dark:text-gray-700 shrink-0">{filtered.length} lines</span>
       </div>
 
       {/* Log content */}
@@ -159,7 +159,7 @@ function LogPane({ tab, tail }: { tab: LogTab; tail?: number }) {
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-5 select-text"
       >
         {filtered.length === 0 && (
-          <p className="text-gray-600">
+          <p className="text-gray-400 dark:text-gray-600">
             {connected ? 'No output yet…' : 'Connecting…'}
           </p>
         )}
@@ -169,7 +169,7 @@ function LogPane({ tab, tail }: { tab: LogTab; tail?: number }) {
           return (
             <div key={i} className={`flex gap-3 min-w-0 ${color}`}>
               {ts && (
-                <span className="text-gray-700 shrink-0 select-none tabular-nums">{ts}</span>
+                <span className="text-gray-400 dark:text-gray-700 shrink-0 select-none tabular-nums">{ts}</span>
               )}
               <span
                 className="break-all whitespace-pre-wrap min-w-0"
@@ -246,20 +246,20 @@ export function LogDock({ tabs, onClose, onCloseAll, tail }: Props) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t-2 border-gray-700 flex flex-col z-50 shadow-2xl"
+      className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 flex flex-col z-50 shadow-2xl"
       style={{ height: collapsed ? 'auto' : height }}
     >
       {/* Resize handle */}
       {!collapsed && (
         <div
           onMouseDown={onResizeStart}
-          className="h-1.5 cursor-row-resize bg-gray-800 hover:bg-sky-600 transition-colors shrink-0"
+          className="h-1.5 cursor-row-resize bg-gray-300 dark:bg-gray-800 hover:bg-sky-600 transition-colors shrink-0"
         />
       )}
 
       {/* Tab bar */}
-      <div className="flex items-center bg-gray-950 border-b border-gray-800 shrink-0 overflow-x-auto">
-        <div className="flex items-center gap-1.5 px-3 text-gray-600 shrink-0">
+      <div className="flex items-center bg-gray-100 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-3 text-gray-400 dark:text-gray-600 shrink-0">
           <Terminal size={12} />
         </div>
 
@@ -271,15 +271,15 @@ export function LogDock({ tabs, onClose, onCloseAll, tail }: Props) {
                 setActiveId(tab.id);
                 setCollapsed(false);
               }}
-              className={`flex items-center gap-2 px-3 py-2 text-[11px] border-r border-gray-800 shrink-0 transition-colors ${
+              className={`flex items-center gap-2 px-3 py-2 text-[11px] border-r border-gray-200 dark:border-gray-800 shrink-0 transition-colors ${
                 activeId === tab.id && !collapsed
-                  ? 'bg-gray-900 text-gray-100 border-t-2 border-t-sky-500 -mt-px'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/60'
+                  ? 'bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-t-2 border-t-sky-500 -mt-px'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800/60'
               }`}
             >
               <span className="max-w-[160px] truncate font-mono">{tab.podName}</span>
               {tab.container && (
-                <span className="text-gray-600 text-[10px]">/{tab.container}</span>
+                <span className="text-gray-500 dark:text-gray-600 text-[10px]">/{tab.container}</span>
               )}
               <span
                 role="button"
@@ -298,14 +298,14 @@ export function LogDock({ tabs, onClose, onCloseAll, tail }: Props) {
         <div className="flex items-center gap-0.5 px-2 shrink-0">
           <button
             onClick={() => setCollapsed((v) => !v)}
-            className="text-gray-600 hover:text-gray-300 p-1.5 rounded hover:bg-gray-800 transition-colors"
+            className="text-gray-500 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-300 p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title={collapsed ? 'Expand' : 'Collapse'}
           >
             {collapsed ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
           <button
             onClick={onCloseAll}
-            className="text-gray-600 hover:text-red-400 p-1.5 rounded hover:bg-gray-800 transition-colors"
+            className="text-gray-500 dark:text-gray-600 hover:text-red-400 p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title="Close all terminals"
           >
             <X size={13} />

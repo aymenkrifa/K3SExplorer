@@ -3,17 +3,37 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-body: #f8fafc;
+    --text-body: #0f172a;
+    --bg-card: #ffffff;
+    --border-color: #e2e8f0;
+    --bg-scroll-track: #e2e8f0;
+    --bg-scroll-thumb: #94a3b8;
+  }
+  html.dark {
+    --bg-body: #020617;
+    --text-body: #f1f5f9;
+    --bg-card: #0f172a;
+    --border-color: #1e293b;
+    --bg-scroll-track: #0f172a;
+    --bg-scroll-thumb: #334155;
+  }
+
   body {
-    @apply bg-gray-950 text-gray-100 font-mono;
+    background-color: var(--bg-body);
+    color: var(--text-body);
+    @apply font-mono;
   }
 
   ::-webkit-scrollbar {
     @apply w-1.5 h-1.5;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-gray-900;
+    background-color: var(--bg-scroll-track);
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-700 rounded;
+    background-color: var(--bg-scroll-thumb);
+    border-radius: 9999px;
   }
 }

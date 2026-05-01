@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Layers, RefreshCw, Server, Settings } from 'lucide-react';
+import { Layers, RefreshCw, Server, Settings, Sun, Moon } from 'lucide-react';
+import { useTheme } from './hooks/useTheme';
 import type { Context, Deployment, DeploymentStatus } from './types';
 import { deploymentStatus } from './types';
 import { fetchConfigMap, fetchContexts, fetchDeployments, fetchNamespaces, fetchSecret, updateConfigMap, updateSecret } from './api';
@@ -23,6 +24,7 @@ function getColorHex(twClass: string): string {
 }
 
 export default function App() {
+  const [theme, toggleTheme] = useTheme();
   const [contexts, setContexts] = useState<Context[]>([]);
   const [namespaces, setNamespaces] = useState<string[]>([]);
   const loaded = loadSettings();
@@ -212,10 +214,10 @@ export default function App() {
   }, [settings]);
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-950">
       {/* Top bar */}
-      <header className="border-b border-gray-800 px-6 py-3 flex items-center gap-4 shrink-0">
-        <div className="flex items-center gap-2 text-sky-400">
+      <header className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center gap-4 shrink-0">
+        <div className="flex items-center gap-2 text-sky-500 dark:text-sky-400">
           <Layers size={20} />
           <span className="font-bold text-sm tracking-wider">K3S INSPECTOR</span>
         </div>
@@ -227,15 +229,22 @@ export default function App() {
         <select
           value={selectedNs}
           onChange={(e) => setSelectedNs(e.target.value)}
-          className="bg-gray-900 border border-gray-700 text-xs text-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-sky-600"
+          className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-sky-600"
         >
           {namespaces.map((ns) => (
             <option key={ns} value={ns}>{ns}</option>
           ))}
         </select>
         <button
+          onClick={toggleTheme}
+          className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+        </button>
+        <button
           onClick={loadDeployments}
-          className="text-gray-500 hover:text-gray-200 transition-colors"
+          className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
           title="Refresh deployments"
         >
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
@@ -245,7 +254,7 @@ export default function App() {
             setSettingsFocusGroupId(null);
             setSettingsOpen(true);
           }}
-          className="text-gray-500 hover:text-gray-200 transition-colors"
+          className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
           title="Settings"
         >
           <Settings size={15} />
@@ -255,7 +264,7 @@ export default function App() {
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — deployment selector */}
         <aside
-          className="shrink-0 border-r border-gray-800 flex flex-col relative"
+          className="shrink-0 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col relative"
           style={{ width: `${sidebarWidth}px` }}
         >
           {/* Resize handle */}
@@ -263,12 +272,12 @@ export default function App() {
             onMouseDown={onSidebarResizeStart}
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-gray-800 hover:bg-sky-600 transition-colors z-10"
           />
-          <div className="px-4 pt-3 pb-2 border-b border-gray-800 flex flex-col gap-2">
+          <div className="px-4 pt-3 pb-2 border-b border-gray-200 dark:border-gray-800 flex flex-col gap-2">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search deployments…"
-              className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-sky-600"
+              className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-1.5 text-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-600"
             />
             <div className="flex gap-1">
               {(['all', 'Running', 'Degraded', 'Stopped'] as const).map((f) => (
@@ -284,7 +293,7 @@ export default function App() {
                         : f === 'Degraded'
                         ? 'bg-yellow-700 text-white'
                         : 'bg-gray-700 text-white'
-                      : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+                      : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
                   }`}
                 >
                   {f === 'all' ? `All ${counts.all}` : f === 'Running' ? `▶ ${counts.Running}` : f === 'Degraded' ? `⚠ ${counts.Degraded}` : `■ ${counts.Stopped}`}
@@ -298,7 +307,7 @@ export default function App() {
                   className={`text-[10px] px-2 py-1 rounded transition-colors ${
                     groupFilter === null
                       ? 'bg-sky-700 text-white'
-                      : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+                      : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
                   }`}
                 >
                   All groups
@@ -341,14 +350,14 @@ export default function App() {
                 <button
                   key={key}
                   onClick={() => togglePin(dep)}
-                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-gray-800 transition-colors ${
-                    isPinned ? 'bg-gray-800/60' : ''
+                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+                    isPinned ? 'bg-gray-100/60 dark:bg-gray-800/60' : ''
                   }`}
                 >
                   <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor} ${st === 'Running' ? 'animate-pulse' : ''}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-200 truncate">{dep.name}</p>
-                    <p className="text-[10px] text-gray-600">{dep.namespace}</p>
+                    <p className="text-xs text-gray-800 dark:text-gray-200 truncate">{dep.name}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-600">{dep.namespace}</p>
                   </div>
                   <span className={`text-[10px] shrink-0 ${
                     st === 'Running' ? 'text-emerald-600' :
@@ -360,7 +369,7 @@ export default function App() {
               );
             })}
           </div>
-          <div className="px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600">
+          <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-800 text-[10px] text-gray-500 dark:text-gray-600">
             {allDeployments.length} deployment{allDeployments.length !== 1 ? 's' : ''}
             {pinned.length > 0 && ` · ${pinned.length} pinned`}
           </div>
@@ -370,8 +379,8 @@ export default function App() {
         <main className="flex-1 overflow-auto p-5">
           {pinnedDeployments.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-              <Layers size={40} className="text-gray-800" />
-              <p className="text-sm text-gray-600">Click deployments on the left to pin them here</p>
+              <Layers size={40} className="text-gray-300 dark:text-gray-800" />
+              <p className="text-sm text-gray-500 dark:text-gray-600">Click deployments on the left to pin them here</p>
             </div>
           ) : (
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
