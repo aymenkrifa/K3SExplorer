@@ -58,6 +58,13 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
     }
   }
 
+  function toggleAll(expand: boolean) {
+    setIngressExpanded(expand);
+    setConfigMapsExpanded(expand);
+    setSecretsExpanded(expand);
+    setPodsExpanded(expand);
+  }
+
   async function scale(delta: number) {
     const next = Math.max(0, dep.replicas.desired + delta);
     setScaling(true);
@@ -102,16 +109,31 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
           <p className="text-xs text-gray-500">{dep.namespace}</p>
         </div>
         <button
+          onClick={() => toggleAll(true)}
+          className="text-gray-600 hover:text-gray-300 transition-colors text-[10px] leading-none"
+          title="Expand all"
+        >
+          Expand
+        </button>
+        <button
+          onClick={() => toggleAll(false)}
+          className="text-gray-600 hover:text-gray-300 transition-colors text-[10px] leading-none"
+          title="Collapse all"
+        >
+          Collapse
+        </button>
+        <button
           onClick={refresh}
-          className="text-gray-500 hover:text-gray-200 transition-colors"
+          disabled={refreshing}
+          className="text-gray-600 hover:text-gray-300 transition-colors"
           title="Refresh"
         >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+          <RefreshCw size={12} className={`${refreshing ? 'animate-spin' : ''}`} />
         </button>
         <button
           onClick={onRemove}
-          className="text-gray-600 hover:text-red-400 transition-colors"
-          title="Remove card"
+          className="text-gray-600 hover:text-gray-300 transition-colors"
+          title="Unpin"
         >
           <X size={14} />
         </button>
