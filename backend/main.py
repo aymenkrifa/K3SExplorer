@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import base64
+import yaml
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -277,6 +278,17 @@ async def restart_deployment(namespace: str, name: str):
         return {"ok": True, "restartedAt": now}
     except ApiException as e:
         return {"error": str(e)}
+
+
+# GET /api/deployments/{namespace}/{name}/yaml
+@app.get("/api/deployments/{namespace}/{name}/yaml")
+async def get_deployment_yaml(namespace: str, name: str):
+    try:
+        dep = apps_v1.read_namespaced_deployment(name, namespace)
+        dep_dict = client.ApiClient().sanitize_for_serialization(dep)
+        return {"yaml": yaml.safe_dump(dep_dict, default_flow_style=False, sort_keys=False, indent=2, allow_unicode=True)}
+    except ApiException as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # GET /api/deployments/{name}/pods

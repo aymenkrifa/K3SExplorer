@@ -3,11 +3,12 @@ import { Layers, RefreshCw, Server, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import type { Context, Deployment, DeploymentStatus } from './types';
 import { deploymentStatus } from './types';
-import { fetchConfigMap, fetchContexts, fetchDeployments, fetchNamespaces, fetchSecret, restartDeployment, updateConfigMap, updateSecret } from './api';
+import { fetchConfigMap, fetchContexts, fetchDeploymentYaml, fetchDeployments, fetchNamespaces, fetchSecret, restartDeployment, updateConfigMap, updateSecret } from './api';
 import { DeploymentCard } from './components/DeploymentCard';
 import { LogDock, LogTab } from './components/LogDock';
 import { ResourceEditorModal } from './components/ResourceEditorModal';
 import { SettingsModal, loadSettings, saveSettings } from './components/SettingsModal';
+import { YamlViewerModal } from './components/YamlViewerModal';
 
 function getColorHex(twClass: string): string {
   const map: Record<string, string> = {
@@ -50,6 +51,11 @@ export default function App() {
   const [editorNs, setEditorNs] = useState('');
   const [editorData, setEditorData] = useState<Record<string, string>>({});
   const [editorLoading, setEditorLoading] = useState(false);
+  const [yamlOpen, setYamlOpen] = useState(false);
+  const [yamlContent, setYamlContent] = useState('');
+  const [yamlName, setYamlName] = useState('');
+  const [yamlNs, setYamlNs] = useState('');
+  const [yamlLoading, setYamlLoading] = useState(false);
   const [logTabs, setLogTabs] = useState<LogTab[]>([]);
 
   function onSidebarResizeStart(e: React.MouseEvent) {
@@ -181,6 +187,22 @@ export default function App() {
       setError(String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openYaml(dep: Deployment) {
+    setYamlOpen(true);
+    setYamlName(dep.name);
+    setYamlNs(dep.namespace);
+    setYamlContent('');
+    setYamlLoading(true);
+    try {
+      const yaml = await fetchDeploymentYaml(dep.name, dep.namespace);
+      setYamlContent(yaml);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setYamlLoading(false);
     }
   }
 
@@ -409,6 +431,7 @@ export default function App() {
                     onOpenResource={openResource}
                     autoExpandPods={settings.autoExpandPods}
                     onRestart={() => handleRestart(dep)}
+                    onViewYaml={() => openYaml(dep)}
                   />
                 );
               })}
@@ -454,6 +477,19 @@ export default function App() {
           setEditorData({});
         }}
         onSave={saveResource}
+      />
+      <YamlViewerModal
+        open={yamlOpen}
+        name={yamlName}
+        namespace={yamlNs}
+        yaml={yamlContent}
+        loading={yamlLoading}
+        onClose={() => {
+          setYamlOpen(false);
+          setYamlContent('');
+          setYamlName('');
+          setYamlNs('');
+        }}
       />
     </div>
   );

@@ -48,6 +48,13 @@ export async function restartDeployment(name: string, namespace: string): Promis
   if (!r.ok) throw new Error(await r.text());
 }
 
+export async function fetchDeploymentYaml(name: string, namespace: string): Promise<string> {
+  const r = await fetch(`${BASE}/deployments/${namespace}/${name}/yaml`);
+  if (!r.ok) throw new Error(await r.text());
+  const data = await r.json();
+  return data.yaml;
+}
+
 export async function fetchPods(name: string, namespace: string): Promise<Pod[]> {
   const r = await fetch(`${BASE}/deployments/${name}/pods?namespace=${namespace}`);
   if (!r.ok) throw new Error(await r.text());

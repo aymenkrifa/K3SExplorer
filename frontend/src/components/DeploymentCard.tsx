@@ -5,6 +5,7 @@ import {
   ChevronUp,
   Clock,
   Container,
+  FileCode,
   Minus,
   Plus,
   RefreshCw,
@@ -24,6 +25,7 @@ interface Props {
   onOpenResource?: (kind: 'configmap' | 'secret', namespace: string, name: string) => void;
   autoExpandPods?: boolean;
   onRestart?: () => void;
+  onViewYaml?: () => void;
 }
 
 function age(createdAt: string | null): string {
@@ -36,7 +38,7 @@ function age(createdAt: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true, onRestart }: Props) {
+export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true, onRestart, onViewYaml }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
   const pods = dep.pods || [];
   const ingresses = dep.ingresses || [];
@@ -151,12 +153,17 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
         </div>
         <div className="py-3 flex flex-col items-center gap-1">
           <Container size={13} className="text-gray-500" />
-          <p className="text-xs">
+          <p className="text-[10px] text-gray-500">
             <span className={ready < desired && desired > 0 ? 'text-yellow-400' : 'text-gray-900 dark:text-gray-100'}>
               {ready}
             </span>
-            <span className="text-gray-500">/{desired}</span>
+            <span className="text-gray-400">/{desired}</span>
           </p>
+          {(dep.replicas.available !== ready || dep.replicas.updated !== ready) && (
+            <p className="text-[10px] text-gray-400">
+              av:{dep.replicas.available} up:{dep.replicas.updated}
+            </p>
+          )}
         </div>
         <div className="py-3 flex flex-col items-center gap-1">
           <Clock size={13} className="text-gray-500" />
@@ -167,35 +174,45 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
       {/* Scale controls */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-800">
         <span className="text-xs text-gray-500">Replicas</span>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => scale(-1)}
-              disabled={scaling || dep.replicas.desired === 0}
-              className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
-            >
-              <Minus size={12} />
-            </button>
-            <span className="text-sm w-5 text-center">{dep.replicas.desired}</span>
-            <button
-              onClick={() => scale(1)}
-              disabled={scaling}
-              className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
-            >
-              <Plus size={12} />
-            </button>
-          </div>
-          <div className="w-px h-3 bg-gray-300 dark:bg-gray-700" />
+        <div className="flex items-center gap-1">
           <button
-            onClick={onRestart}
-            disabled={!onRestart}
-            className="flex items-center gap-1 text-[10px] text-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors disabled:opacity-30"
-            title="Restart deployment"
+            onClick={() => scale(-1)}
+            disabled={scaling || dep.replicas.desired === 0}
+            className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
           >
-            <Zap size={11} />
-            Restart
+            <Minus size={12} />
+          </button>
+          <span className="text-sm w-5 text-center">{dep.replicas.desired}</span>
+          <button
+            onClick={() => scale(1)}
+            disabled={scaling}
+            className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
+          >
+            <Plus size={12} />
           </button>
         </div>
+      </div>
+
+      {/* Actions row */}
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-200 dark:border-gray-800">
+        <button
+          onClick={onViewYaml}
+          disabled={!onViewYaml}
+          className="flex items-center gap-1 text-[10px] text-sky-500 hover:text-sky-600 dark:hover:text-sky-400 transition-colors disabled:opacity-30"
+          title="View deployment YAML"
+        >
+          <FileCode size={11} />
+          View Deployment
+        </button>
+        <button
+          onClick={onRestart}
+          disabled={!onRestart}
+          className="flex items-center gap-1 text-[10px] text-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors disabled:opacity-30"
+          title="Restart deployment"
+        >
+          <Zap size={11} />
+          Restart
+        </button>
       </div>
 
       <button
