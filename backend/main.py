@@ -291,6 +291,16 @@ async def get_deployment_yaml(namespace: str, name: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# DELETE /api/pods/{namespace}/{name} (restart by deletion)
+@app.delete("/api/pods/{namespace}/{name}")
+async def delete_pod(namespace: str, name: str):
+    try:
+        v1.delete_namespaced_pod(name, namespace)
+        return {"ok": True}
+    except ApiException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 # GET /api/deployments/{name}/pods
 @app.get("/api/deployments/{name}/pods")
 async def get_pods(name: str, namespace: str = "default"):

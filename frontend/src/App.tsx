@@ -3,7 +3,7 @@ import { Layers, RefreshCw, Server, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import type { Context, Deployment, DeploymentStatus } from './types';
 import { deploymentStatus } from './types';
-import { fetchConfigMap, fetchContexts, fetchDeploymentYaml, fetchDeployments, fetchNamespaces, fetchSecret, restartDeployment, updateConfigMap, updateSecret } from './api';
+import { deletePod, fetchConfigMap, fetchContexts, fetchDeploymentYaml, fetchDeployments, fetchNamespaces, fetchSecret, restartDeployment, updateConfigMap, updateSecret } from './api';
 import { DeploymentCard } from './components/DeploymentCard';
 import { LogDock, LogTab } from './components/LogDock';
 import { ResourceEditorModal } from './components/ResourceEditorModal';
@@ -181,6 +181,19 @@ export default function App() {
     setLoading(true);
     try {
       await restartDeployment(dep.name, dep.namespace);
+      await new Promise((r) => setTimeout(r, 500));
+      await loadDeployments();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRestartPod(podName: string, namespace: string) {
+    setLoading(true);
+    try {
+      await deletePod(podName, namespace);
       await new Promise((r) => setTimeout(r, 500));
       await loadDeployments();
     } catch (e) {
@@ -432,6 +445,7 @@ export default function App() {
                     autoExpandPods={settings.autoExpandPods}
                     onRestart={() => handleRestart(dep)}
                     onViewYaml={() => openYaml(dep)}
+                    onRestartPod={handleRestartPod}
                   />
                 );
               })}

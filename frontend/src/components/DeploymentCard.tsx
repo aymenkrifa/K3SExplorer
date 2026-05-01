@@ -9,6 +9,7 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  RotateCcw,
   Zap,
   ScrollText,
   X,
@@ -26,6 +27,7 @@ interface Props {
   autoExpandPods?: boolean;
   onRestart?: () => void;
   onViewYaml?: () => void;
+  onRestartPod?: (podName: string, namespace: string) => void;
 }
 
 function age(createdAt: string | null): string {
@@ -38,7 +40,7 @@ function age(createdAt: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true, onRestart, onViewYaml }: Props) {
+export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true, onRestart, onViewYaml, onRestartPod }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
   const pods = dep.pods || [];
   const ingresses = dep.ingresses || [];
@@ -373,6 +375,14 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
                       className="text-gray-400 hover:text-sky-500 dark:text-gray-600 dark:hover:text-sky-400 transition-colors shrink-0"
                     >
                       <ScrollText size={12} />
+                    </button>
+                    <button
+                      onClick={() => onRestartPod?.(pod.name, dep.namespace)}
+                      disabled={!onRestartPod}
+                      title="Restart pod (delete & recreate)"
+                      className="text-gray-400 hover:text-orange-500 dark:text-gray-600 dark:hover:text-orange-400 transition-colors shrink-0 disabled:opacity-30"
+                    >
+                      <RotateCcw size={11} />
                     </button>
                   </div>
                   <div className="flex items-center gap-3 pl-3.5 text-gray-500 dark:text-gray-600">

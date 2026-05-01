@@ -55,6 +55,13 @@ export async function fetchDeploymentYaml(name: string, namespace: string): Prom
   return data.yaml;
 }
 
+export async function deletePod(name: string, namespace: string): Promise<void> {
+  const r = await fetch(`${BASE}/pods/${namespace}/${name}`, {
+    method: 'DELETE',
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
 export async function fetchPods(name: string, namespace: string): Promise<Pod[]> {
   const r = await fetch(`${BASE}/deployments/${name}/pods?namespace=${namespace}`);
   if (!r.ok) throw new Error(await r.text());
