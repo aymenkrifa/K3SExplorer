@@ -20,6 +20,7 @@ interface Props {
   onRemove: () => void;
   onRefresh: () => void;
   onOpenLog: (podName: string, namespace: string, container: string, deploymentName: string) => void;
+  onOpenResource?: (kind: 'configmap' | 'secret', namespace: string, name: string) => void;
   autoExpandPods?: boolean;
 }
 
@@ -33,12 +34,14 @@ function age(createdAt: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, autoExpandPods = true }: Props) {
+export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
   const pods = dep.pods || [];
   const ingresses = dep.ingresses || [];
   const [podsExpanded, setPodsExpanded] = useState(autoExpandPods);
   const [ingressExpanded, setIngressExpanded] = useState(false);
+  const [configMapsExpanded, setConfigMapsExpanded] = useState(false);
+  const [secretsExpanded, setSecretsExpanded] = useState(false);
   const [scaling, setScaling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -230,7 +233,61 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
         </div>
       )}
 
-      {/* Toggle pods */}
+      {/* ConfigMaps */}
+      <button
+        onClick={() => setConfigMapsExpanded((v) => !v)}
+        className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+      >
+        <span>ConfigMaps</span>
+        {configMapsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+      {configMapsExpanded && (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/50">
+          {dep.configMaps.length === 0 ? (
+            <p className="text-xs text-gray-600 px-4 py-3">No ConfigMaps</p>
+          ) : (
+            dep.configMaps.map((name) => (
+              <button
+                key={name}
+                onClick={() => onOpenResource?.('configmap', dep.namespace, name)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[10px] text-left hover:bg-gray-800/50 transition-colors"
+              >
+                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-sky-400" />
+                <span className="text-gray-300 truncate flex-1 min-w-0 text-xs">{name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Secrets */}
+      <button
+        onClick={() => setSecretsExpanded((v) => !v)}
+        className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+      >
+        <span>Secrets</span>
+        {secretsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+      {secretsExpanded && (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/50">
+          {dep.secrets.length === 0 ? (
+            <p className="text-xs text-gray-600 px-4 py-3">No Secrets</p>
+          ) : (
+            dep.secrets.map((name) => (
+              <button
+                key={name}
+                onClick={() => onOpenResource?.('secret', dep.namespace, name)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[10px] text-left hover:bg-gray-800/50 transition-colors"
+              >
+                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-orange-400" />
+                <span className="text-gray-300 truncate flex-1 min-w-0 text-xs">{name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Pods — always at bottom */}
       <button
         onClick={() => setPodsExpanded((v) => !v)}
         className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors"
@@ -238,8 +295,6 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
         <span>Pods</span>
         {podsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
-
-      {/* Pods list */}
       {podsExpanded && (
         <div className="border-t border-gray-800 divide-y divide-gray-800/50">
           {pods.length === 0 ? (
@@ -286,7 +341,7 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
         </div>
       )}
 
-      {/* Images */}
+      {/* Images — under pods */}
       <div className="border-t border-gray-800 px-4 py-2">
         {dep.images.map((img) => (
           <p key={img} className="text-[10px] text-gray-600 truncate" title={img}>

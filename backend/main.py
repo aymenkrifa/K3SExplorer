@@ -2,7 +2,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import base64
+
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
@@ -16,7 +18,44 @@ apps_v1 = client.AppsV1Api()
 networking_v1 = client.NetworkingV1Api()
 
 
-# ── helpers ─────────────────────────────────────────────────────────────────
+def extract_refs_from_deployment(d):
+    """Extract ConfigMap and Secret names referenced by a Deployment's pod template."""
+    configmaps = set()
+    secrets = set()
+    pod_spec = d.spec.template.spec
+    if not pod_spec:
+        return {"configMaps": list(configmaps), "secrets": list(secrets)}
+
+    # Volumes
+    for vol in (pod_spec.volumes or []):
+        if vol.config_map and vol.config_map.name:
+            configmaps.add(vol.config_map.name)
+        if vol.secret and vol.secret.secret_name:
+            secrets.add(vol.secret.secret_name)
+        if vol.projected:
+            for src in (vol.projected.sources or []):
+                if src.config_map and src.config_map.name:
+                    configmaps.add(src.config_map.name)
+                if src.secret and src.secret.name:
+                    secrets.add(src.secret.name)
+
+    # Env vars and envFrom in containers
+    for container in (pod_spec.containers or []):
+        for env in (container.env or []):
+            if env.value_from:
+                if env.value_from.config_map_key_ref and env.value_from.config_map_key_ref.name:
+                    configmaps.add(env.value_from.config_map_key_ref.name)
+                if env.value_from.secret_key_ref and env.value_from.secret_key_ref.name:
+                    secrets.add(env.value_from.secret_key_ref.name)
+        for ef in (container.env_from or []):
+            if ef.config_map_ref and ef.config_map_ref.name:
+                configmaps.add(ef.config_map_ref.name)
+            if ef.secret_ref and ef.secret_ref.name:
+                secrets.add(ef.secret_ref.name)
+
+    return {"configMaps": list(configmaps), "secrets": list(secrets)}
+
+
 def parse_age(created_at: str | None) -> str:
     if not created_at:
         return "-"
@@ -60,6 +99,7 @@ def map_deployment(d):
         else "False",
         "images": [c.image or "" for c in (d.spec.template.spec.containers or [])],
         "labels": dict(d.metadata.labels or {}),
+        **extract_refs_from_deployment(d),
     }
 
 
@@ -298,6 +338,57 @@ async def log_stream(ws: WebSocket):
             pass
 
 
+# GET /api/configmaps
+@app.get("/api/configmaps")
+async def list_configmaps(namespace: str = "default"):
+    try:
+        if namespace == "all":
+            cm_list = v1.list_config_map_for_all_namespaces()
+        else:
+            cm_list = v1.list_namespaced_config_map(namespace)
+        return [
+            {
+                "name": cm.metadata.name or "",
+                "namespace": cm.metadata.namespace or "",
+                "createdAt": cm.metadata.creation_timestamp.isoformat()
+                if cm.metadata.creation_timestamp
+                else None,
+                "labels": dict(cm.metadata.labels or {}),
+                "dataKeys": list(cm.data.keys()) if cm.data else [],
+            }
+            for cm in cm_list.items
+            if cm.metadata.name
+        ]
+    except ApiException as e:
+        return {"error": str(e)}
+
+
+# GET /api/secrets
+@app.get("/api/secrets")
+async def list_secrets(namespace: str = "default"):
+    try:
+        if namespace == "all":
+            secret_list = v1.list_secret_for_all_namespaces()
+        else:
+            secret_list = v1.list_namespaced_secret(namespace)
+        return [
+            {
+                "name": s.metadata.name or "",
+                "namespace": s.metadata.namespace or "",
+                "createdAt": s.metadata.creation_timestamp.isoformat()
+                if s.metadata.creation_timestamp
+                else None,
+                "labels": dict(s.metadata.labels or {}),
+                "type": s.type or "Opaque",
+                "keys": list(s.data.keys()) if s.data else [],
+            }
+            for s in secret_list.items
+            if s.metadata.name
+        ]
+    except ApiException as e:
+        return {"error": str(e)}
+
+
 # GET /api/deployments/{name}/ingress
 @app.get("/api/deployments/{name}/ingress")
 async def get_ingress(name: str, namespace: str = "default"):
@@ -337,3 +428,64 @@ async def get_ingress(name: str, namespace: str = "default"):
         return result
     except ApiException as e:
         return {"error": str(e)}
+
+
+# GET a single ConfigMap (with decoded data)
+@app.get("/api/configmaps/{namespace}/{name}")
+async def get_configmap(namespace: str, name: str):
+    try:
+        cm = v1.read_namespaced_config_map(name, namespace)
+        return {
+            "name": cm.metadata.name,
+            "namespace": cm.metadata.namespace,
+            "data": dict(cm.data or {}),
+            "labels": dict(cm.metadata.labels or {}),
+        }
+    except ApiException as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+
+
+# GET a single Secret (with base64-decoded data)
+@app.get("/api/secrets/{namespace}/{name}")
+async def get_secret(namespace: str, name: str):
+    try:
+        s = v1.read_namespaced_secret(name, namespace)
+        return {
+            "name": s.metadata.name,
+            "namespace": s.metadata.namespace,
+            "type": s.type or "Opaque",
+            "data": {k: base64.b64decode(v).decode("utf-8") for k, v in (s.data or {}).items()},
+            "labels": dict(s.metadata.labels or {}),
+        }
+    except ApiException as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+
+
+# PUT (update) a ConfigMap
+@app.put("/api/configmaps/{namespace}/{name}")
+async def update_configmap(namespace: str, name: str, body: dict):
+    try:
+        cm = v1.read_namespaced_config_map(name, namespace)
+        cm.data = body.get("data", {})
+        v1.replace_namespaced_config_map(name, namespace, cm)
+        return {"status": "updated"}
+    except ApiException as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+
+
+# PUT (update) a Secret
+@app.put("/api/secrets/{namespace}/{name}")
+async def update_secret(namespace: str, name: str, body: dict):
+    try:
+        s = v1.read_namespaced_secret(name, namespace)
+        if "type" in body:
+            s.type = body["type"]
+        if "data" in body:
+            s.data = {
+                k: base64.b64encode(v.encode("utf-8")).decode("utf-8")
+                for k, v in body["data"].items()
+            }
+        v1.replace_namespaced_secret(name, namespace, s)
+        return {"status": "updated"}
+    except ApiException as e:
+        raise HTTPException(status_code=e.status, detail=str(e))

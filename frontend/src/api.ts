@@ -1,4 +1,4 @@
-import type { Context, Deployment, Ingress, Pod } from './types';
+import type { ConfigMap, Context, Deployment, Ingress, Pod, Secret } from './types';
 
 const BASE = '/api';
 
@@ -51,6 +51,48 @@ export async function fetchIngress(name: string, namespace: string): Promise<Ing
   const r = await fetch(`${BASE}/deployments/${name}/ingress?namespace=${namespace}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
+}
+
+export async function fetchConfigMaps(namespace: string): Promise<ConfigMap[]> {
+  const r = await fetch(`${BASE}/configmaps?namespace=${namespace}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function fetchSecrets(namespace: string): Promise<Secret[]> {
+  const r = await fetch(`${BASE}/secrets?namespace=${namespace}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function fetchConfigMap(namespace: string, name: string): Promise<ConfigMap & { data: Record<string, string> }> {
+  const r = await fetch(`${BASE}/configmaps/${namespace}/${name}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function updateConfigMap(namespace: string, name: string, data: Record<string, string>): Promise<void> {
+  const r = await fetch(`${BASE}/configmaps/${namespace}/${name}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+export async function fetchSecret(namespace: string, name: string): Promise<Secret & { data: Record<string, string> }> {
+  const r = await fetch(`${BASE}/secrets/${namespace}/${name}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function updateSecret(namespace: string, name: string, data: Record<string, string>): Promise<void> {
+  const r = await fetch(`${BASE}/secrets/${namespace}/${name}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data }),
+  });
+  if (!r.ok) throw new Error(await r.text());
 }
 
 export function openLogStream(

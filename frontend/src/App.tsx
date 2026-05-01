@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Layers, RefreshCw, Server, Settings } from 'lucide-react';
 import type { Context, Deployment, DeploymentStatus } from './types';
 import { deploymentStatus } from './types';
-import { fetchContexts, fetchDeployments, fetchNamespaces } from './api';
+import { fetchConfigMap, fetchContexts, fetchDeployments, fetchNamespaces, fetchSecret, updateConfigMap, updateSecret } from './api';
 import { DeploymentCard } from './components/DeploymentCard';
 import { LogDock, LogTab } from './components/LogDock';
+import { ResourceEditorModal } from './components/ResourceEditorModal';
 import { SettingsModal, loadSettings, saveSettings } from './components/SettingsModal';
 
 function getColorHex(twClass: string): string {
@@ -40,7 +41,13 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | DeploymentStatus>('all');
   const [groupFilter, setGroupFilter] = useState<string | null>(loaded.defaultGroupId || null);
-  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorKind, setEditorKind] = useState<'configmap' | 'secret' | null>(null);
+  const [editorName, setEditorName] = useState('');
+  const [editorNs, setEditorNs] = useState('');
+  const [editorData, setEditorData] = useState<Record<string, string>>({});
+  const [editorLoading, setEditorLoading] = useState(false);
   const [logTabs, setLogTabs] = useState<LogTab[]>([]);
 
   function onSidebarResizeStart(e: React.MouseEvent) {
@@ -138,6 +145,49 @@ export default function App() {
 
   function closeLogTab(id: string) {
     setLogTabs((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  async function openResource(kind: 'configmap' | 'secret', namespace: string, name: string) {
+    setEditorKind(kind);
+    setEditorName(name);
+    setEditorNs(namespace);
+    setEditorData({});
+    setEditorOpen(true);
+    setEditorLoading(true);
+    try {
+      if (kind === 'configmap') {
+        const cm = await fetchConfigMap(namespace, name);
+        setEditorData(cm.data || {});
+      } else {
+        const s = await fetchSecret(namespace, name);
+        setEditorData(s.data || {});
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setEditorLoading(false);
+    }
+  }
+
+  async function saveResource(data: Record<string, string>) {
+    if (!editorKind || !editorName || !editorNs) return;
+    setEditorLoading(true);
+    try {
+      if (editorKind === 'configmap') {
+        await updateConfigMap(editorNs, editorName, data);
+      } else {
+        await updateSecret(editorNs, editorName, data);
+      }
+      setEditorOpen(false);
+      setEditorKind(null);
+      setEditorName('');
+      setEditorNs('');
+      setEditorData({});
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setEditorLoading(false);
+    }
   }
 
   function togglePin(dep: Deployment) {
@@ -334,6 +384,7 @@ export default function App() {
                     onRemove={() => togglePin(dep)}
                     onRefresh={loadDeployments}
                     onOpenLog={openLogTab}
+                    onOpenResource={openResource}
                     autoExpandPods={settings.autoExpandPods}
                   />
                 );
@@ -364,6 +415,22 @@ export default function App() {
           setFullDeploymentsForSettings(full);
         }}
         focusGroupId={settingsFocusGroupId}
+      />
+      <ResourceEditorModal
+        open={editorOpen}
+        kind={editorKind}
+        namespace={editorNs}
+        name={editorName}
+        data={editorData}
+        loading={editorLoading}
+        onClose={() => {
+          setEditorOpen(false);
+          setEditorKind(null);
+          setEditorName('');
+          setEditorNs('');
+          setEditorData({});
+        }}
+        onSave={saveResource}
       />
     </div>
   );

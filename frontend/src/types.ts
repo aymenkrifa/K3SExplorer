@@ -31,6 +31,8 @@ export interface Deployment {
   labels: Record<string, string>;
   pods: Pod[];
   ingresses: Ingress[];
+  configMaps: string[];
+  secrets: string[];
 }
 
 export interface Pod {
@@ -50,6 +52,23 @@ export interface IngressRule {
 export interface Ingress {
   name: string;
   rules: IngressRule[];
+}
+
+export interface ConfigMap {
+  name: string;
+  namespace: string;
+  createdAt: string | null;
+  labels: Record<string, string>;
+  dataKeys: string[];
+}
+
+export interface Secret {
+  name: string;
+  namespace: string;
+  createdAt: string | null;
+  labels: Record<string, string>;
+  type: string;
+  keys: string[];
 }
 
 export function deploymentStatus(d: Deployment): DeploymentStatus {
