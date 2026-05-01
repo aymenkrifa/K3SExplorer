@@ -184,13 +184,15 @@ export function SettingsModal({ open, onClose, settings, onChange, namespaces, d
                 <label className="text-sm text-gray-300">Auto-expand pods</label>
                 <button
                   onClick={() => update({ autoExpandPods: !draft.autoExpandPods })}
-                  className={`w-9 h-5 rounded-full transition-colors relative ${
+                  className={`w-10 h-5 rounded-full transition-colors relative ${
                     draft.autoExpandPods ? 'bg-sky-600' : 'bg-gray-700'
                   }`}
+                  aria-checked={draft.autoExpandPods}
+                  role="switch"
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                      draft.autoExpandPods ? 'translate-x-4' : 'translate-x-0.5'
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      draft.autoExpandPods ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>
