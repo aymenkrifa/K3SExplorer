@@ -41,6 +41,13 @@ export async function scaleDeployment(
   if (!r.ok) throw new Error(await r.text());
 }
 
+export async function restartDeployment(name: string, namespace: string): Promise<void> {
+  const r = await fetch(`${BASE}/deployments/${namespace}/${name}/restart`, {
+    method: 'POST',
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
 export async function fetchPods(name: string, namespace: string): Promise<Pod[]> {
   const r = await fetch(`${BASE}/deployments/${name}/pods?namespace=${namespace}`);
   if (!r.ok) throw new Error(await r.text());

@@ -3,7 +3,7 @@ import { Layers, RefreshCw, Server, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import type { Context, Deployment, DeploymentStatus } from './types';
 import { deploymentStatus } from './types';
-import { fetchConfigMap, fetchContexts, fetchDeployments, fetchNamespaces, fetchSecret, updateConfigMap, updateSecret } from './api';
+import { fetchConfigMap, fetchContexts, fetchDeployments, fetchNamespaces, fetchSecret, restartDeployment, updateConfigMap, updateSecret } from './api';
 import { DeploymentCard } from './components/DeploymentCard';
 import { LogDock, LogTab } from './components/LogDock';
 import { ResourceEditorModal } from './components/ResourceEditorModal';
@@ -168,6 +168,19 @@ export default function App() {
       setError(String(e));
     } finally {
       setEditorLoading(false);
+    }
+  }
+
+  async function handleRestart(dep: Deployment) {
+    setLoading(true);
+    try {
+      await restartDeployment(dep.name, dep.namespace);
+      await new Promise((r) => setTimeout(r, 500));
+      await loadDeployments();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -395,6 +408,7 @@ export default function App() {
                     onOpenLog={openLogTab}
                     onOpenResource={openResource}
                     autoExpandPods={settings.autoExpandPods}
+                    onRestart={() => handleRestart(dep)}
                   />
                 );
               })}

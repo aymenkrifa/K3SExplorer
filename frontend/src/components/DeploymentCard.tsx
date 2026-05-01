@@ -8,6 +8,7 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  Zap,
   ScrollText,
   X,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ interface Props {
   onOpenLog: (podName: string, namespace: string, container: string, deploymentName: string) => void;
   onOpenResource?: (kind: 'configmap' | 'secret', namespace: string, name: string) => void;
   autoExpandPods?: boolean;
+  onRestart?: () => void;
 }
 
 function age(createdAt: string | null): string {
@@ -34,7 +36,7 @@ function age(createdAt: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true }: Props) {
+export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true, onRestart }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
   const pods = dep.pods || [];
   const ingresses = dep.ingresses || [];
@@ -165,21 +167,33 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
       {/* Scale controls */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-800">
         <span className="text-xs text-gray-500">Replicas</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => scale(-1)}
+              disabled={scaling || dep.replicas.desired === 0}
+              className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
+            >
+              <Minus size={12} />
+            </button>
+            <span className="text-sm w-5 text-center">{dep.replicas.desired}</span>
+            <button
+              onClick={() => scale(1)}
+              disabled={scaling}
+              className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+          <div className="w-px h-3 bg-gray-300 dark:bg-gray-700" />
           <button
-            onClick={() => scale(-1)}
-            disabled={scaling || dep.replicas.desired === 0}
-            className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
+            onClick={onRestart}
+            disabled={!onRestart}
+            className="flex items-center gap-1 text-[10px] text-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors disabled:opacity-30"
+            title="Restart deployment"
           >
-            <Minus size={12} />
-          </button>
-          <span className="text-sm w-5 text-center">{dep.replicas.desired}</span>
-          <button
-            onClick={() => scale(1)}
-            disabled={scaling}
-            className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
-          >
-            <Plus size={12} />
+            <Zap size={11} />
+            Restart
           </button>
         </div>
       </div>

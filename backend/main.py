@@ -251,6 +251,34 @@ async def scale_deployment(name: str, namespace: str = "default", body: dict = {
         return {"error": str(e)}
 
 
+# POST /api/deployments/{namespace}/{name}/restart
+@app.post("/api/deployments/{namespace}/{name}/restart")
+async def restart_deployment(namespace: str, name: str):
+    from datetime import datetime, timezone
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        patch = {
+            "spec": {
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "kubectl.kubernetes.io/restartedAt": now,
+                        }
+                    }
+                }
+            }
+        }
+        apps_v1.patch_namespaced_deployment(
+            name=name,
+            namespace=namespace,
+            body=patch,
+            field_manager="k3s-inspector",
+        )
+        return {"ok": True, "restartedAt": now}
+    except ApiException as e:
+        return {"error": str(e)}
+
+
 # GET /api/deployments/{name}/pods
 @app.get("/api/deployments/{name}/pods")
 async def get_pods(name: str, namespace: str = "default"):
