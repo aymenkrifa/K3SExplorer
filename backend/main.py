@@ -117,6 +117,14 @@ def map_pods(namespace, selector):
     pods = []
     for p in pod_list.items:
         cs = p.status.container_statuses or []
+        # Determine container waiting/terminated reasons
+        waiting_reason = None
+        terminated_reason = None
+        for c in cs:
+            if c.state and c.state.waiting and c.state.waiting.reason:
+                waiting_reason = c.state.waiting.reason
+            if c.last_state and c.last_state.terminated and c.last_state.terminated.reason:
+                terminated_reason = c.last_state.terminated.reason
         pods.append(
             {
                 "name": p.metadata.name or "",
@@ -127,6 +135,9 @@ def map_pods(namespace, selector):
                 "ready": all(c.ready for c in cs),
                 "restarts": sum(c.restart_count for c in cs),
                 "containers": [c.name for c in (p.spec.containers or [])],
+                "terminating": p.metadata.deletion_timestamp is not None,
+                "waitingReason": waiting_reason,
+                "terminatedReason": terminated_reason,
             }
         )
     return pods
@@ -326,27 +337,7 @@ async def get_pods(name: str, namespace: str = "default"):
     try:
         dep = apps_v1.read_namespaced_deployment(name, namespace)
         selector = dep.spec.selector.match_labels or {}
-        label_selector = ",".join(f"{k}={v}" for k, v in selector.items())
-        pod_list = v1.list_namespaced_pod(
-            namespace=namespace,
-            label_selector=label_selector,
-        )
-        pods = []
-        for p in pod_list.items:
-            cs = p.status.container_statuses or []
-            pods.append(
-                {
-                    "name": p.metadata.name or "",
-                    "phase": p.status.phase or "Unknown",
-                    "createdAt": p.metadata.creation_timestamp.isoformat()
-                    if p.metadata.creation_timestamp
-                    else None,
-                    "ready": all(c.ready for c in cs),
-                    "restarts": sum(c.restart_count for c in cs),
-                    "containers": [c.name for c in (p.spec.containers or [])],
-                }
-            )
-        return pods
+        return map_pods(namespace, selector)
     except ApiException as e:
         return {"error": str(e)}
 

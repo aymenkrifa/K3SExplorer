@@ -42,6 +42,9 @@ export interface Pod {
   ready: boolean;
   restarts: number;
   containers: string[];
+  terminating: boolean;
+  waitingReason: string | null;
+  terminatedReason: string | null;
 }
 
 export interface IngressRule {

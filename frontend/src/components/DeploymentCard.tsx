@@ -225,6 +225,36 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
         </div>
       </div>
 
+      {/* Deployment conditions */}
+      {dep.conditions.length > 0 && (
+        <div className="flex items-center gap-1.5 px-4 py-1 border-t border-gray-200 dark:border-gray-800 flex-wrap">
+          {dep.conditions
+            .filter((c) => c.status !== 'True' || (c.type !== 'Available' && c.type !== 'Progressing'))
+            .map((c) => {
+              const isError = c.status !== 'True' && c.type === 'ReplicaFailure';
+              const isProgressing = c.type === 'Progressing' && c.status === 'True';
+              const isWarning = c.status !== 'True';
+              return (
+                <span
+                  key={c.type}
+                  className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                    isError
+                      ? 'border-red-400 text-red-400 bg-red-400/10'
+                      : isProgressing
+                      ? 'border-blue-400 text-blue-400 bg-blue-400/10'
+                      : isWarning
+                      ? 'border-yellow-400 text-yellow-400 bg-yellow-400/10'
+                      : 'border-emerald-400 text-emerald-400 bg-emerald-400/10'
+                  }`}
+                  title={c.message}
+                >
+                  {c.reason || c.type}
+                </span>
+              );
+            })}
+        </div>
+      )}
+
       {/* Scale controls */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-800">
         <span className="text-xs text-gray-500">Replicas</span>
@@ -409,17 +439,63 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
           ) : (
             pods.map((pod) => {
               const podRunning = pod.phase === 'Running' && pod.ready;
-              const podDegraded = pod.phase === 'Running' && !pod.ready;
-              const podDotColor = podRunning
-                ? 'bg-emerald-400'
-                : podDegraded
-                  ? 'bg-yellow-400'
-                  : 'bg-red-500';
-              const podPhaseLabel = pod.ready ? 'Running' : pod.phase;
+              const podNotReady = pod.phase === 'Running' && !pod.ready;
+              const podPending = pod.phase === 'Pending';
+              const podSucceeded = pod.phase === 'Succeeded';
+              const podFailed = pod.phase === 'Failed';
+              const podUnknown = pod.phase === 'Unknown';
+
+              // Badge text and color logic
+              let badgeText: string;
+              let badgeColor: string;
+              let dotColor: string;
+
+              if (pod.terminating) {
+                badgeText = 'Terminating';
+                badgeColor = 'text-slate-500';
+                dotColor = 'bg-slate-400';
+              } else if (pod.waitingReason) {
+                badgeText = pod.waitingReason;
+                badgeColor = pod.waitingReason === 'ContainerCreating' ? 'text-blue-500' : 'text-red-500';
+                dotColor = pod.waitingReason === 'ContainerCreating' ? 'bg-blue-400 animate-pulse' : 'bg-red-500';
+              } else if (pod.terminatedReason) {
+                badgeText = pod.terminatedReason;
+                badgeColor = pod.terminatedReason === 'Completed' ? 'text-emerald-500' : 'text-red-500';
+                dotColor = pod.terminatedReason === 'Completed' ? 'bg-emerald-400' : 'bg-red-500';
+              } else if (podPending) {
+                badgeText = 'Pending';
+                badgeColor = 'text-yellow-500';
+                dotColor = 'bg-yellow-400 animate-pulse';
+              } else if (podSucceeded) {
+                badgeText = 'Completed';
+                badgeColor = 'text-emerald-500';
+                dotColor = 'bg-emerald-400';
+              } else if (podFailed) {
+                badgeText = 'Failed';
+                badgeColor = 'text-red-500';
+                dotColor = 'bg-red-500';
+              } else if (podUnknown) {
+                badgeText = 'Unknown';
+                badgeColor = 'text-gray-500';
+                dotColor = 'bg-gray-400';
+              } else if (podNotReady) {
+                badgeText = 'Not Ready';
+                badgeColor = 'text-yellow-500';
+                dotColor = 'bg-yellow-400 animate-pulse';
+              } else if (podRunning) {
+                badgeText = 'Running';
+                badgeColor = 'text-emerald-500';
+                dotColor = 'bg-emerald-400 animate-pulse';
+              } else {
+                badgeText = pod.phase;
+                badgeColor = 'text-gray-500';
+                dotColor = 'bg-gray-400';
+              }
+
               return (
                 <div key={pod.name} className="px-3 py-2 flex flex-col gap-1 text-[10px]">
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${podDotColor} ${podRunning ? 'animate-pulse' : ''}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
                     <span className="text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0 text-xs">{pod.name}</span>
                     <button
                       onClick={() => onOpenLog(pod.name, dep.namespace, pod.containers[0] ?? '', dep.name)}
@@ -438,9 +514,7 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
                     </button>
                   </div>
                   <div className="flex items-center gap-3 pl-3.5 text-gray-500 dark:text-gray-600">
-                    <span className={podRunning ? 'text-emerald-500' : podDegraded ? 'text-yellow-500' : 'text-red-500'}>
-                      {podPhaseLabel}
-                    </span>
+                    <span className={badgeColor}>{badgeText}</span>
                     <span className="flex items-center gap-1">
                       <Clock size={9} />
                       {age(pod.createdAt)}
