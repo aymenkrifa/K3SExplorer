@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import type { Deployment, DeploymentStatus, Ingress, Pod } from '../types';
 import { deploymentStatus } from '../types';
-import { scaleDeployment } from '../api';
+import { fetchPodMetrics, scaleDeployment } from '../api';
 
 interface Props {
   deployment: Deployment;
@@ -40,6 +40,36 @@ function age(createdAt: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
+function parseCpu(val: string): number {
+  if (val.endsWith('n')) return parseInt(val, 10) / 1e9;
+  if (val.endsWith('u')) return parseInt(val, 10) / 1e6;
+  if (val.endsWith('m')) return parseInt(val, 10) / 1000;
+  return parseFloat(val);
+}
+
+function formatCpu(cores: number): string {
+  if (cores < 0.01) return `${(cores * 1000).toFixed(0)}m`;
+  return `${cores.toFixed(2)}`;
+}
+
+function parseMemory(val: string): number {
+  if (val.endsWith('Ki')) return parseInt(val, 10) * 1024;
+  if (val.endsWith('Mi')) return parseInt(val, 10) * 1024 * 1024;
+  if (val.endsWith('Gi')) return parseInt(val, 10) * 1024 * 1024 * 1024;
+  if (val.endsWith('Ti')) return parseInt(val, 10) * 1024 * 1024 * 1024 * 1024;
+  if (val.endsWith('k')) return parseInt(val, 10) * 1000;
+  if (val.endsWith('M')) return parseInt(val, 10) * 1000 * 1000;
+  if (val.endsWith('G')) return parseInt(val, 10) * 1000 * 1000 * 1000;
+  return parseInt(val, 10);
+}
+
+function formatMemory(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}Gi`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}Mi`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)}Ki`;
+  return `${bytes}B`;
+}
+
 export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpenLog, onOpenResource, autoExpandPods = true, onRestart, onViewYaml, onRestartPod }: Props) {
   const [dep, setDep] = useState<Deployment>(initial);
   const pods = dep.pods || [];
@@ -50,10 +80,32 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
   const [secretsExpanded, setSecretsExpanded] = useState(false);
   const [scaling, setScaling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [podMetrics, setPodMetrics] = useState<Record<string, { cpu: string; memory: string }>>({});
 
   useEffect(() => {
     setDep(initial);
   }, [initial]);
+
+  // Fetch metrics for visible pods
+  useEffect(() => {
+    if (!podsExpanded) return;
+    const abort = new AbortController();
+    async function load() {
+      const next: Record<string, { cpu: string; memory: string }> = {};
+      for (const pod of pods) {
+        if (abort.signal.aborted) return;
+        try {
+          const m = await fetchPodMetrics(pod.name, dep.namespace);
+          const totalCpu = m.containers.reduce((sum, c) => sum + parseCpu(c.cpu), 0);
+          const totalMem = m.containers.reduce((sum, c) => sum + parseMemory(c.memory), 0);
+          next[pod.name] = { cpu: formatCpu(totalCpu), memory: formatMemory(totalMem) };
+        } catch { /* metrics-server may not be installed */ }
+      }
+      if (!abort.signal.aborted) setPodMetrics(next);
+    }
+    load();
+    return () => abort.abort();
+  }, [podsExpanded, pods, dep.namespace]);
 
   async function refresh() {
     setRefreshing(true);
@@ -395,6 +447,11 @@ export function DeploymentCard({ deployment: initial, onRemove, onRefresh, onOpe
                     </span>
                     {pod.restarts > 0 && (
                       <span className="text-orange-400">↺ {pod.restarts} restart{pod.restarts !== 1 ? 's' : ''}</span>
+                    )}
+                    {podMetrics[pod.name] && (
+                      <span className="text-sky-500">
+                        ⚡ {podMetrics[pod.name].cpu} · {podMetrics[pod.name].memory}
+                      </span>
                     )}
                   </div>
                 </div>

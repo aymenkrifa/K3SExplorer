@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Layers, RefreshCw, Server, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
-import type { Context, Deployment, DeploymentStatus } from './types';
+import { useEvents } from './hooks/useEvents';
+import type { Context, Deployment, DeploymentStatus, K8sEvent } from './types';
 import { deploymentStatus } from './types';
 import { deletePod, fetchConfigMap, fetchContexts, fetchDeploymentYaml, fetchDeployments, fetchNamespaces, fetchSecret, restartDeployment, updateConfigMap, updateSecret } from './api';
 import { DeploymentCard } from './components/DeploymentCard';
@@ -102,6 +103,24 @@ export default function App() {
       setLoading(false);
     }
   }, [selectedNs, groupFilter, settings.groups]);
+
+  const { events, connected, clearEvents } = useEvents(true);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-refresh deployments when relevant events arrive (debounced 2s)
+  useEffect(() => {
+    if (events.length === 0) return;
+    const latest = events[0];
+    const relevantKinds = ['Deployment', 'Pod', 'ReplicaSet'];
+    if (!relevantKinds.includes(latest.involvedObject.kind)) return;
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => {
+      loadDeployments();
+    }, 2000);
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    };
+  }, [events, loadDeployments]);
 
   useEffect(() => { reload(); }, [reload]);
   useEffect(() => { loadDeployments(); }, [loadDeployments]);
@@ -417,6 +436,43 @@ export default function App() {
               );
             })}
           </div>
+
+          {/* Events panel */}
+          {events.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-800">
+              <div className="px-3 py-1.5 flex items-center justify-between border-b border-gray-200 dark:border-gray-800/50">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-red-500'}`} />
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Events</span>
+                </div>
+                <button
+                  onClick={clearEvents}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  title="Clear events"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {events.slice(0, 5).map((ev, i) => (
+                  <div
+                    key={`${ev.timestamp}-${i}`}
+                    className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-800/50 last:border-0"
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className={`w-1 h-1 rounded-full ${ev.type === 'Warning' ? 'bg-yellow-400' : 'bg-emerald-400'}`} />
+                      <span className="text-[10px] text-gray-700 dark:text-gray-300 font-medium truncate">{ev.reason}</span>
+                      <span className="text-[9px] text-gray-400 shrink-0">{ev.involvedObject.kind}/{ev.involvedObject.name}</span>
+                    </div>
+                    <p className="text-[9px] text-gray-500 dark:text-gray-500 leading-tight truncate" title={ev.message}>
+                      {ev.message}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-800 text-[10px] text-gray-500 dark:text-gray-600">
             {allDeployments.length} deployment{allDeployments.length !== 1 ? 's' : ''}
             {pinned.length > 0 && ` · ${pinned.length} pinned`}

@@ -76,3 +76,24 @@ export function deploymentStatus(d: Deployment): DeploymentStatus {
   if (d.replicas.ready === d.replicas.desired) return 'Running';
   return 'Degraded';
 }
+
+export interface K8sEvent {
+  type: string;
+  reason: string;
+  message: string;
+  timestamp: string | null;
+  involvedObject: {
+    kind: string;
+    name: string;
+    namespace: string;
+  };
+  count: number;
+}
+
+export interface PodMetrics {
+  containers: {
+    name: string;
+    cpu: string;
+    memory: string;
+  }[];
+}

@@ -17,6 +17,7 @@ config.load_kube_config()
 v1 = client.CoreV1Api()
 apps_v1 = client.AppsV1Api()
 networking_v1 = client.NetworkingV1Api()
+custom_api = client.CustomObjectsApi()
 
 
 def extract_refs_from_deployment(d):
@@ -386,6 +387,82 @@ async def log_stream(ws: WebSocket):
                 await ws.close()
         except RuntimeError:
             pass
+
+
+# WS /ws/events
+@app.websocket("/ws/events")
+async def events_stream(ws: WebSocket):
+    await ws.accept()
+
+    def event_generator():
+        w = watch.Watch()
+        for event in w.stream(v1.list_event_for_all_namespaces):
+            yield event
+
+    async def send_events():
+        loop = asyncio.get_event_loop()
+        gen = event_generator()
+        while True:
+            if ws.client_state == WebSocketState.DISCONNECTED:
+                break
+            try:
+                ev = await loop.run_in_executor(None, next, gen)
+                await ws.send_json({
+                    "type": ev.type,
+                    "reason": ev.reason,
+                    "message": ev.message,
+                    "timestamp": ev.last_timestamp.isoformat() if ev.last_timestamp else None,
+                    "involvedObject": {
+                        "kind": ev.involved_object.kind,
+                        "name": ev.involved_object.name,
+                        "namespace": ev.involved_object.namespace,
+                    },
+                    "count": ev.count,
+                })
+            except StopIteration:
+                break
+
+    try:
+        await send_events()
+    except WebSocketDisconnect:
+        pass
+    except RuntimeError:
+        pass
+    except Exception:
+        pass
+    finally:
+        try:
+            if ws.client_state != WebSocketState.DISCONNECTED:
+                await ws.close()
+        except RuntimeError:
+            pass
+
+
+# GET /api/namespaces/{namespace}/pods/{name}/metrics
+@app.get("/api/namespaces/{namespace}/pods/{name}/metrics")
+async def get_pod_metrics(namespace: str, name: str):
+    try:
+        metrics = custom_api.get_namespaced_custom_object(
+            group="metrics.k8s.io",
+            version="v1beta1",
+            namespace=namespace,
+            plural="pods",
+            name=name,
+        )
+        containers = metrics.get("containers", [])
+        result = []
+        for c in containers:
+            usage = c.get("usage", {})
+            result.append({
+                "name": c.get("name"),
+                "cpu": usage.get("cpu", "0"),
+                "memory": usage.get("memory", "0"),
+            })
+        return {"containers": result}
+    except ApiException as e:
+        if e.status == 404:
+            return {"error": "Metrics not available. Ensure metrics-server is installed."}
+        raise HTTPException(status_code=e.status, detail=str(e))
 
 
 # GET /api/configmaps

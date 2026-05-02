@@ -68,6 +68,12 @@ export async function fetchPods(name: string, namespace: string): Promise<Pod[]>
   return r.json();
 }
 
+export async function fetchPodMetrics(name: string, namespace: string): Promise<{ containers: { name: string; cpu: string; memory: string }[] }> {
+  const r = await fetch(`${BASE}/namespaces/${namespace}/pods/${name}/metrics`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 export async function fetchIngress(name: string, namespace: string): Promise<Ingress[]> {
   const r = await fetch(`${BASE}/deployments/${name}/ingress?namespace=${namespace}`);
   if (!r.ok) throw new Error(await r.text());
