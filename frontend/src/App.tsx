@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Layers, RefreshCw, Server, Settings, Sun, Moon } from 'lucide-react';
+import { Layers, RefreshCw, Server, Settings, Sun, Moon, AlertTriangle } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { useEvents } from './hooks/useEvents';
 import type { Context, Deployment, DeploymentStatus, K8sEvent } from './types';
@@ -413,7 +413,19 @@ export default function App() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {error && (
-              <p className="text-xs text-red-400 px-4 py-3">{error}</p>
+              <div className="mx-3 mt-3 mb-2 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2.5 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle size={13} className="text-red-500 shrink-0" />
+                  <span className="text-[11px] font-semibold text-red-600 dark:text-red-400">Something went wrong</span>
+                </div>
+                <p className="text-[10px] text-red-500 dark:text-red-400 leading-relaxed">{error}</p>
+                <button
+                  onClick={() => setError('')}
+                  className="self-start text-[10px] text-red-600 dark:text-red-400 hover:underline mt-0.5"
+                >
+                  Dismiss
+                </button>
+              </div>
             )}
             {filtered.length === 0 && !loading && !error && (
               <p className="text-xs text-gray-600 px-4 py-4">No deployments found</p>
