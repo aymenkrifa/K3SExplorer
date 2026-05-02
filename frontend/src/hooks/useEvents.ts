@@ -26,6 +26,7 @@ export function useEvents(enabled: boolean) {
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data) as K8sEvent;
+        console.log('[events WS]', data.type, data.reason, data.involvedObject?.kind, data.involvedObject?.name);
         setEvents((prev) => {
           const next = [data, ...prev];
           return next.slice(0, MAX_EVENTS);

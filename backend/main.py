@@ -29,27 +29,30 @@ def extract_refs_from_deployment(d):
         return {"configMaps": list(configmaps), "secrets": list(secrets)}
 
     # Volumes
-    for vol in (pod_spec.volumes or []):
+    for vol in pod_spec.volumes or []:
         if vol.config_map and vol.config_map.name:
             configmaps.add(vol.config_map.name)
         if vol.secret and vol.secret.secret_name:
             secrets.add(vol.secret.secret_name)
         if vol.projected:
-            for src in (vol.projected.sources or []):
+            for src in vol.projected.sources or []:
                 if src.config_map and src.config_map.name:
                     configmaps.add(src.config_map.name)
                 if src.secret and src.secret.name:
                     secrets.add(src.secret.name)
 
     # Env vars and envFrom in containers
-    for container in (pod_spec.containers or []):
-        for env in (container.env or []):
+    for container in pod_spec.containers or []:
+        for env in container.env or []:
             if env.value_from:
-                if env.value_from.config_map_key_ref and env.value_from.config_map_key_ref.name:
+                if (
+                    env.value_from.config_map_key_ref
+                    and env.value_from.config_map_key_ref.name
+                ):
                     configmaps.add(env.value_from.config_map_key_ref.name)
                 if env.value_from.secret_key_ref and env.value_from.secret_key_ref.name:
                     secrets.add(env.value_from.secret_key_ref.name)
-        for ef in (container.env_from or []):
+        for ef in container.env_from or []:
             if ef.config_map_ref and ef.config_map_ref.name:
                 configmaps.add(ef.config_map_ref.name)
             if ef.secret_ref and ef.secret_ref.name:
@@ -141,19 +144,23 @@ def map_ingresses(namespace, dep_labels):
     result = []
     for ing in ingress_list.items:
         ing_services = set()
-        for rule in (ing.spec.rules or []):
-            for p in (rule.http.paths if rule.http else []):
+        for rule in ing.spec.rules or []:
+            for p in rule.http.paths if rule.http else []:
                 svc = p.backend.service.name if p.backend and p.backend.service else ""
                 if svc:
                     ing_services.add(svc)
 
         if ing_services & matching_services:
             rules = []
-            for rule in (ing.spec.rules or []):
+            for rule in ing.spec.rules or []:
                 host = rule.host or "*"
                 paths = []
-                for p in (rule.http.paths if rule.http else []):
-                    service_name = p.backend.service.name if p.backend and p.backend.service else ""
+                for p in rule.http.paths if rule.http else []:
+                    service_name = (
+                        p.backend.service.name
+                        if p.backend and p.backend.service
+                        else ""
+                    )
                     paths.append({"path": p.path or "/", "service": service_name})
                 if paths:
                     rules.append({"host": host, "paths": paths})
@@ -219,7 +226,9 @@ async def list_deployments(namespace: str = "default", names: str = ""):
                 continue
             dep = map_deployment(d)
             dep["pods"] = map_pods(dep["namespace"], d.spec.selector.match_labels or {})
-            dep["ingresses"] = map_ingresses(dep["namespace"], d.spec.selector.match_labels or {})
+            dep["ingresses"] = map_ingresses(
+                dep["namespace"], d.spec.selector.match_labels or {}
+            )
             result.append(dep)
         return result
     except ApiException as e:
@@ -257,6 +266,7 @@ async def scale_deployment(name: str, namespace: str = "default", body: dict = {
 @app.post("/api/deployments/{namespace}/{name}/restart")
 async def restart_deployment(namespace: str, name: str):
     from datetime import datetime, timezone
+
     try:
         now = datetime.now(timezone.utc).isoformat()
         patch = {
@@ -287,7 +297,15 @@ async def get_deployment_yaml(namespace: str, name: str):
     try:
         dep = apps_v1.read_namespaced_deployment(name, namespace)
         dep_dict = client.ApiClient().sanitize_for_serialization(dep)
-        return {"yaml": yaml.safe_dump(dep_dict, default_flow_style=False, sort_keys=False, indent=2, allow_unicode=True)}
+        return {
+            "yaml": yaml.safe_dump(
+                dep_dict,
+                default_flow_style=False,
+                sort_keys=False,
+                indent=2,
+                allow_unicode=True,
+            )
+        }
     except ApiException as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -407,18 +425,22 @@ async def events_stream(ws: WebSocket):
                 break
             try:
                 ev = await loop.run_in_executor(None, next, gen)
-                await ws.send_json({
-                    "type": ev.type,
-                    "reason": ev.reason,
-                    "message": ev.message,
-                    "timestamp": ev.last_timestamp.isoformat() if ev.last_timestamp else None,
-                    "involvedObject": {
-                        "kind": ev.involved_object.kind,
-                        "name": ev.involved_object.name,
-                        "namespace": ev.involved_object.namespace,
-                    },
-                    "count": ev.count,
-                })
+                await ws.send_json(
+                    {
+                        "type": ev.type,
+                        "reason": ev.reason,
+                        "message": ev.message,
+                        "timestamp": ev.last_timestamp.isoformat()
+                        if ev.last_timestamp
+                        else None,
+                        "involvedObject": {
+                            "kind": ev.involved_object.kind,
+                            "name": ev.involved_object.name,
+                            "namespace": ev.involved_object.namespace,
+                        },
+                        "count": ev.count,
+                    }
+                )
             except StopIteration:
                 break
 
@@ -453,15 +475,19 @@ async def get_pod_metrics(namespace: str, name: str):
         result = []
         for c in containers:
             usage = c.get("usage", {})
-            result.append({
-                "name": c.get("name"),
-                "cpu": usage.get("cpu", "0"),
-                "memory": usage.get("memory", "0"),
-            })
+            result.append(
+                {
+                    "name": c.get("name"),
+                    "cpu": usage.get("cpu", "0"),
+                    "memory": usage.get("memory", "0"),
+                }
+            )
         return {"containers": result}
     except ApiException as e:
-        if e.status == 404:
-            return {"error": "Metrics not available. Ensure metrics-server is installed."}
+        if e.status in (404, 503):
+            return {
+                "error": "Metrics not available. Ensure metrics-server is installed."
+            }
         raise HTTPException(status_code=e.status, detail=str(e))
 
 
@@ -534,19 +560,27 @@ async def get_ingress(name: str, namespace: str = "default"):
         result = []
         for ing in ingress_list.items:
             ing_services = set()
-            for rule in (ing.spec.rules or []):
-                for p in (rule.http.paths if rule.http else []):
-                    svc = p.backend.service.name if p.backend and p.backend.service else ""
+            for rule in ing.spec.rules or []:
+                for p in rule.http.paths if rule.http else []:
+                    svc = (
+                        p.backend.service.name
+                        if p.backend and p.backend.service
+                        else ""
+                    )
                     if svc:
                         ing_services.add(svc)
 
             if ing_services & matching_services:
                 rules = []
-                for rule in (ing.spec.rules or []):
+                for rule in ing.spec.rules or []:
                     host = rule.host or "*"
                     paths = []
-                    for p in (rule.http.paths if rule.http else []):
-                        service_name = p.backend.service.name if p.backend and p.backend.service else ""
+                    for p in rule.http.paths if rule.http else []:
+                        service_name = (
+                            p.backend.service.name
+                            if p.backend and p.backend.service
+                            else ""
+                        )
                         paths.append({"path": p.path or "/", "service": service_name})
                     if paths:
                         rules.append({"host": host, "paths": paths})
@@ -581,7 +615,10 @@ async def get_secret(namespace: str, name: str):
             "name": s.metadata.name,
             "namespace": s.metadata.namespace,
             "type": s.type or "Opaque",
-            "data": {k: base64.b64decode(v).decode("utf-8") for k, v in (s.data or {}).items()},
+            "data": {
+                k: base64.b64decode(v).decode("utf-8")
+                for k, v in (s.data or {}).items()
+            },
             "labels": dict(s.metadata.labels or {}),
         }
     except ApiException as e:

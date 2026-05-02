@@ -111,16 +111,28 @@ export default function App() {
   useEffect(() => {
     if (events.length === 0) return;
     const latest = events[0];
+    console.log('[auto-refresh check]', latest.type, latest.reason, latest.involvedObject.kind, latest.involvedObject.name);
     const relevantKinds = ['Deployment', 'Pod', 'ReplicaSet'];
     if (!relevantKinds.includes(latest.involvedObject.kind)) return;
+    console.log('[auto-refresh] scheduling refresh for', latest.involvedObject.name);
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(() => {
+      console.log('[auto-refresh] executing loadDeployments');
       loadDeployments();
     }, 2000);
     return () => {
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
     };
   }, [events, loadDeployments]);
+
+  // Fallback polling every 10s to keep UI up to date even if WS fails
+  useEffect(() => {
+    const id = setInterval(() => {
+      console.log('[poll] loading deployments');
+      loadDeployments();
+    }, 10000);
+    return () => clearInterval(id);
+  }, [loadDeployments]);
 
   useEffect(() => { reload(); }, [reload]);
   useEffect(() => { loadDeployments(); }, [loadDeployments]);
