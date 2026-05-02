@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import base64
+from os import name
 import yaml
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -164,7 +165,7 @@ def map_ingresses(namespace, dep_labels):
         if ing_services & matching_services:
             rules = []
             for rule in ing.spec.rules or []:
-                host = rule.host or "*"
+                host = "ingress.local"
                 paths = []
                 for p in rule.http.paths if rule.http else []:
                     service_name = (
@@ -186,7 +187,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, title="Inspector Backend")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
