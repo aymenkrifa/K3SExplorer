@@ -165,7 +165,7 @@ def map_ingresses(namespace, dep_labels):
         if ing_services & matching_services:
             rules = []
             for rule in ing.spec.rules or []:
-                host = "ingress.local"
+                host = rule.host or "*"
                 paths = []
                 for p in rule.http.paths if rule.http else []:
                     service_name = (
