@@ -294,7 +294,7 @@ export default function App() {
       <header className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center gap-4 shrink-0">
         <div className="flex items-center gap-2 text-sky-500 dark:text-sky-400">
           <Layers size={20} />
-          <span className="font-bold text-sm tracking-wider">K3S INSPECTOR</span>
+          <span className="font-bold text-sm tracking-wider">KEXPLORER</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-2">
           <Server size={12} />

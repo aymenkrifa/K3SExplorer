@@ -1,14 +1,18 @@
 import asyncio
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-
 import base64
-from os import name
-import yaml
+from contextlib import asynccontextmanager
+from datetime import datetime
+from datetime import timezone
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import yaml
+from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi import WebSocket
+from fastapi import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from kubernetes import client, config, watch
+from kubernetes import client
+from kubernetes import config
+from kubernetes import watch
 from kubernetes.client.rest import ApiException
 from starlette.websockets import WebSocketState
 
@@ -124,7 +128,11 @@ def map_pods(namespace, selector):
         for c in cs:
             if c.state and c.state.waiting and c.state.waiting.reason:
                 waiting_reason = c.state.waiting.reason
-            if c.last_state and c.last_state.terminated and c.last_state.terminated.reason:
+            if (
+                c.last_state
+                and c.last_state.terminated
+                and c.last_state.terminated.reason
+            ):
                 terminated_reason = c.last_state.terminated.reason
         pods.append(
             {
@@ -187,7 +195,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan, title="Inspector Backend")
+app = FastAPI(lifespan=lifespan, title="KExplorer Backend")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -267,7 +275,7 @@ async def scale_deployment(name: str, namespace: str = "default", body: dict = {
             name=name,
             namespace=namespace,
             body=patch,
-            field_manager="k3s-inspector",
+            field_manager="kexplorer",
         )
         return {"ok": True, "replicas": replicas}
     except ApiException as e:
@@ -296,7 +304,7 @@ async def restart_deployment(namespace: str, name: str):
             name=name,
             namespace=namespace,
             body=patch,
-            field_manager="k3s-inspector",
+            field_manager="kexplorer",
         )
         return {"ok": True, "restartedAt": now}
     except ApiException as e:
@@ -359,7 +367,7 @@ async def log_stream(ws: WebSocket):
 
     def log_generator():
         w = watch.Watch()
-        for line in w.stream(
+        yield from w.stream(
             v1.read_namespaced_pod_log,
             name=pod,
             namespace=ns,
@@ -368,8 +376,7 @@ async def log_stream(ws: WebSocket):
             tail_lines=tail,
             timestamps=True,
             pretty=False,
-        ):
-            yield line
+        )
 
     async def send_logs():
         loop = asyncio.get_event_loop()
@@ -406,8 +413,7 @@ async def events_stream(ws: WebSocket):
 
     def event_generator():
         w = watch.Watch()
-        for event in w.stream(v1.list_event_for_all_namespaces):
-            yield event
+        yield from w.stream(v1.list_event_for_all_namespaces)
 
     async def send_events():
         loop = asyncio.get_event_loop()

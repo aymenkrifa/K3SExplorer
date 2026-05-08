@@ -1,8 +1,8 @@
-# K3s Inspector
+# KExplorer
 
 A real-time, highly-opinionated, web-based Kubernetes dashboard for managing deployments, pods, and cluster resources. Built for K3s and any standard Kubernetes cluster based on my personal workflow and preferences.
 
-![K3s Inspector](screenshots/screenshot-dark.png)
+![KExplorer](screenshots/screenshot-dark.png)
 
 ## Features
 
@@ -43,8 +43,8 @@ A real-time, highly-opinionated, web-based Kubernetes dashboard for managing dep
 ### 1. Clone and enter the project
 
 ```bash
-git clone https://github.com/<your-username>/k3s-inspector.git
-cd k3s-inspector
+git clone https://github.com/aymenkrifa/KExplorer.git
+cd KExplorer
 ```
 
 ### 2. Backend
@@ -66,6 +66,17 @@ npm run dev
 ```
 
 The frontend starts on `http://localhost:5173` and proxies API/WebSocket calls to the backend.
+
+## Security & scope
+
+KExplorer is designed for **local, single-user development** against a cluster you already have admin access to. It is intentionally not hardened:
+
+- **No authentication.** Anyone who can reach the backend can drive your cluster.
+- **CORS is wide open** (`allow_origins=["*"]`).
+- **Secrets are decoded server-side** and returned as plaintext to the browser.
+- **The backend uses your local kubeconfig** — whatever context is active when the server starts is the cluster it operates on. Switching contexts requires a restart.
+
+Do not expose the backend on a network you don't fully control. Run it on `localhost` only.
 
 ## Environment Variables
 
@@ -103,4 +114,4 @@ The frontend starts on `http://localhost:5173` and proxies API/WebSocket calls t
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
