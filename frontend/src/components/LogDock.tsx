@@ -23,7 +23,7 @@ function ansiToHtml(text: string): string {
   let lastIndex = 0;
   let m;
   while ((m = pattern.exec(text)) !== null) {
-    html += escapeHtml(text.slice(lastIndex, m.index));
+    html += escapeAndLinkify(text.slice(lastIndex, m.index));
     const codes = m[1].split(';').map(Number);
     let styles: string[] = [];
     let bold = false;
@@ -49,7 +49,7 @@ function ansiToHtml(text: string): string {
       html += '</span>';
     }
   }
-  html += escapeHtml(text.slice(lastIndex));
+  html += escapeAndLinkify(text.slice(lastIndex));
   // Close any open spans
   return html;
 }
@@ -58,7 +58,28 @@ function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAndLinkify(s: string): string {
+  const urlRe = /https?:\/\/[^\s<>"']+/g;
+  let out = '';
+  let lastIndex = 0;
+  let m;
+  while ((m = urlRe.exec(s)) !== null) {
+    out += escapeHtml(s.slice(lastIndex, m.index));
+    let url = m[0];
+    const trail = url.match(/[.,;:!?)\]]+$/)?.[0] ?? '';
+    if (trail) url = url.slice(0, -trail.length);
+    const escUrl = escapeHtml(url);
+    out += `<a href="${escUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline hover:text-sky-400">${escUrl}</a>`;
+    if (trail) out += escapeHtml(trail);
+    lastIndex = urlRe.lastIndex;
+  }
+  out += escapeHtml(s.slice(lastIndex));
+  return out;
 }
 
 function colorLine(line: string): string {
